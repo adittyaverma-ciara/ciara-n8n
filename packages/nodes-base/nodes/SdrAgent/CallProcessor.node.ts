@@ -41,56 +41,71 @@ export class CallProcessor implements INodeType {
 		if (!sdrAgentId || !segmentId) {
 			throw new Error('SDR Agent ID and Segment ID are required.');
 		}
+		const objectInfo = Object.assign(this);
+		const userId = objectInfo?.additionalData?.userId;
 
 		const connection = await getDbConnection();
-		const sdrAgent = await fetchSDRAgent(connection, sdrAgentId);
+		if (userId) {
+			let [company] = await connection.execute(
+				'SELECT * FROM companies WHERE workflow_acc_id = ?',
+				[userId],
+			);
+			company = company as any[];
+			const companyInfo = company[0] as any;
+			const companyId = companyInfo.id;
+			if (companyId) {
+				const sdrAgent = await fetchSDRAgent(connection, sdrAgentId, companyId);
 
-		if (!sdrAgent) {
-			console.log('No active SDR agent found.');
-			return [[{ json: { message: 'No active SDR agent found.' } }]];
+				if (!sdrAgent) {
+					console.log('No active SDR agent found.');
+					return [[{ json: { message: 'No active SDR agent found.' } }]];
+				}
+
+				// Check if the SDR Agent is available
+				const isAvailable = checkTimeSlotDayWise(
+					sdrAgent.scheduling_hours,
+					getWeekDayOfToday(sdrAgent.offset),
+					sdrAgent.offset,
+				);
+
+				// if (!isAvailable) {
+				// 	console.log('Agent not available in the current time slot.');
+				// 	return [[{ json: { message: 'Agent unavailable at this time.' } }]];
+				// }
+
+				// Fetch eligible contacts
+				const contacts = await fetchContacts(
+					connection,
+					segmentId,
+					sdrAgent.offset,
+					maxAttempts,
+					retryAfterDays,
+					companyId,
+				);
+				if (!contacts.length) {
+					console.log('No eligible contacts found.');
+					return [[{ json: { message: 'No eligible contacts found.' } }]];
+				}
+
+				// Process calls
+				const callResults = await processCalls(contacts, sdrAgent);
+
+				return [this.helpers.returnJsonArray(callResults)];
+			}
 		}
-
-		// Check if the SDR Agent is available
-		const isAvailable = checkTimeSlotDayWise(
-			sdrAgent.scheduling_hours,
-			getWeekDayOfToday(sdrAgent.offset),
-			sdrAgent.offset,
-		);
-
-		// if (!isAvailable) {
-		// 	console.log('Agent not available in the current time slot.');
-		// 	return [[{ json: { message: 'Agent unavailable at this time.' } }]];
-		// }
-
-		// Fetch eligible contacts
-		const contacts = await fetchContacts(
-			connection,
-			segmentId,
-			sdrAgent.offset,
-			maxAttempts,
-			retryAfterDays,
-		);
-		if (!contacts.length) {
-			console.log('No eligible contacts found.');
-			return [[{ json: { message: 'No eligible contacts found.' } }]];
-		}
-
-		// Process calls
-		const callResults = await processCalls(contacts, sdrAgent);
-
-		return [this.helpers.returnJsonArray(callResults)];
+		return [this.helpers.returnJsonArray([])];
 	}
 }
 
 // 🔹 Fetch SDR Agent details from DB
-async function fetchSDRAgent(connection: any, sdrAgentId: any) {
+async function fetchSDRAgent(connection: any, sdrAgentId: any, companyId: number) {
 	const [results] = await connection.execute(
 		`SELECT sa.*, sa.id as agent_id, tz.*
          FROM sdr_agents AS sa
          JOIN s_a_scheduling_details AS sasd ON sa.id = sasd.sdr_agent_id
          JOIN timezones AS tz ON sasd.timezone = tz.id
-         WHERE sa.id = ? AND sa.status = 'ACTIVE'`,
-		[sdrAgentId],
+         WHERE sa.company_id = ? AND sa.id = ? AND sa.status = 'ACTIVE'`,
+		[companyId, sdrAgentId],
 	);
 	return results.length ? results[0] : null;
 }
@@ -102,13 +117,14 @@ async function fetchContacts(
 	offset: string,
 	maxAttempts: any,
 	retryAfterDays: any,
+	companyId: number,
 ) {
 	const [contacts] = await connection.execute(
 		`SELECT DISTINCT cal.*
          FROM customers_and_leads_segments AS cals
          JOIN customers_and_leads AS cal ON cals.customers_and_leads_id = cal.id
          LEFT JOIN sdr_agents_call_details AS sacd ON sacd.lead_id = cal.id
-         WHERE cals.segment_id = ?
+         WHERE cals.company_id = ? AND cals.segment_id = ?
          AND cal.status NOT IN ('calling', 'non-responsive', 'do-not-call')
          AND (cal.status != 'call-back' 
               OR (CONVERT_TZ(NOW(), '+00:00', IFNULL(?, "+00:00")) >= 
@@ -118,7 +134,7 @@ async function fetchContacts(
              AND COALESCE((SELECT MAX(created_at) FROM sdr_agents_call_details WHERE lead_id = cal.id), '1970-01-01') 
              <= DATE_SUB(NOW(), INTERVAL COALESCE(?, 0) DAY)
          )`,
-		[segmentId, offset, offset, maxAttempts, retryAfterDays],
+		[companyId, segmentId, offset, offset, maxAttempts, retryAfterDays],
 	);
 	return contacts;
 }

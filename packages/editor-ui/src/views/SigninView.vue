@@ -15,6 +15,7 @@ import { useCloudPlanStore } from '@/stores/cloudPlan.store';
 
 import type { IFormBoxConfig } from '@/Interface';
 import { MFA_AUTHENTICATION_REQUIRED_ERROR_CODE, MFA_FORM, VIEWS } from '@/constants';
+import { getCompanyCredentials } from '@/api/company.api';
 
 const usersStore = useUsersStore();
 const settingsStore = useSettingsStore();
@@ -192,12 +193,25 @@ const cacheCredentials = (form: { email: string; password: string }) => {
 
 onMounted(async () => {
 	loading.value = true;
-	await login({
-		email: 'adityaverma512@gmail.com',
-		password: 'Aditya@95097',
-	}).finally(() => {
+	try {
+		const redirect = route.query.redirect as string;
+		if (redirect) {
+			const decodedRedirect = decodeURIComponent(redirect);
+			const companyMatch = decodedRedirect.match(/company=(\d+)/);
+			if (companyMatch) {
+				const companyId = companyMatch[1];
+				const credentials = await getCompanyCredentials(companyId);
+				await login({
+					email: credentials.email,
+					password: credentials.password,
+				});
+			}
+		}
+	} catch (error) {
+		toast.showError(error, locale.baseText('auth.signin.error'));
+	} finally {
 		loading.value = false;
-	});
+	}
 });
 </script>
 

@@ -127,11 +127,10 @@ async function fetchContacts(
          WHERE cals.company_id = ? AND cals.segment_id = ?
          AND cal.status NOT IN ('calling', 'non-responsive', 'do-not-call')
          AND (cal.status != 'call-back' 
-              OR (CONVERT_TZ(NOW(), '+00:00', IFNULL(?, "+00:00")) >= 
-                  CONVERT_TZ(cal.callback_timestamp, '+00:00', IFNULL(?, "+00:00"))))
+              OR EXISTS (SELECT 1 FROM sdr_agents_call_details sacd WHERE sacd.lead_id = cal.id AND sacd.sdr_agent_id = cal.sdr_agent_id AND (sacd.is_callback_requested = true AND sacd.is_callback = false AND CONVERT_TZ(NOW(), '+00:00', IFNULL(?,"+00:00")) >= CONVERT_TZ(sacd.callback_timestamp, '+00:00', IFNULL(?,"+00:00")))))
          AND (
-             (SELECT COUNT(*) FROM sdr_agents_call_details WHERE lead_id = cal.id) < ?
-             AND COALESCE((SELECT MAX(created_at) FROM sdr_agents_call_details WHERE lead_id = cal.id), '1970-01-01') 
+             (SELECT COUNT(*) FROM sdr_agents_call_details AS calls WHERE calls.lead_id = cal.id) < ?
+             AND COALESCE((SELECT MAX(created_at) FROM sdr_agents_call_details AS calls WHERE calls.lead_id = cal.id), '1970-01-01') 
              <= DATE_SUB(NOW(), INTERVAL COALESCE(?, 0) DAY)
          )`,
 		[companyId, segmentId, offset, offset, maxAttempts, retryAfterDays],

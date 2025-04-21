@@ -199,10 +199,10 @@ async function storeCallDetails(records: any[]) {
 
 async function updateCallStatus(contactId: number, status: string) {
 	const connection = await getDbConnection();
-	await connection.execute(
-		'UPDATE customers_and_leads SET status = ?, callback_timestamp = NULL WHERE id = ?',
-		[status, contactId],
-	);
+	await connection.execute('UPDATE customers_and_leads SET status = ? WHERE id = ?', [
+		status,
+		contactId,
+	]);
 }
 
 // 🔹 Retell API Helper Functions

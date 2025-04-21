@@ -88,7 +88,7 @@ export class CallProcessor implements INodeType {
 				}
 
 				// Process calls
-				const callResults = await processCalls(contacts, sdrAgent);
+				const callResults = await processCalls(contacts, sdrAgent, segmentId);
 
 				return [this.helpers.returnJsonArray(callResults)];
 			}
@@ -139,7 +139,7 @@ async function fetchContacts(
 }
 
 // 🔹 Process calls for each eligible contact
-async function processCalls(contacts: any[], sdrAgent: any) {
+async function processCalls(contacts: any[], sdrAgent: any, segmentId: any) {
 	const callPromises = contacts.map(async (contact) => {
 		try {
 			console.log(`Calling ${contact.phone_number} from ${sdrAgent.agent_phone_number}...`);
@@ -173,6 +173,7 @@ async function processCalls(contacts: any[], sdrAgent: any) {
 					callData.call_id,
 					contact.company_id,
 					contact.id,
+					segmentId,
 				]);
 				await updateCallStatus(contact.id, 'calling');
 				return { ...contact, ...callData };
@@ -192,7 +193,7 @@ async function processCalls(contacts: any[], sdrAgent: any) {
 async function storeCallDetails(records: any[]) {
 	const connection = await getDbConnection();
 	await connection.execute(
-		'INSERT INTO sdr_agents_call_details (sdr_agent_id, call_current_status, retell_call_id, company_id, lead_id) VALUES (?, ?, ?, ?, ?)',
+		'INSERT INTO sdr_agents_call_details (sdr_agent_id, call_current_status, retell_call_id, company_id, lead_id, segment_id) VALUES (?, ?, ?, ?, ?, ?)',
 		records,
 	);
 }

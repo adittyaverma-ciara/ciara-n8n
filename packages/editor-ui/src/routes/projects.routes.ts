@@ -135,7 +135,7 @@ export const projectsRoutes: RouteRecordRaw[] = [
 		meta: {
 			middleware: ['authenticated'],
 		},
-		redirect: '/home/workflows',
+		redirect: '/workflow/new',
 		children: commonChildRoutes.map((route, idx) => ({
 			...route,
 			name: commonChildRouteExtensions.home[idx].name,

@@ -53,23 +53,28 @@ export class SdrAgent implements INodeType {
 				const objectInfo = Object.assign(this);
 				const userId = objectInfo?.additionalData?.userId;
 				let result: { name: string; value: number }[] = [];
+
 				if (userId) {
 					const connection = await getDbConnection();
-					let [company] = await connection.execute(
-						'SELECT * FROM companies WHERE workflow_acc_id = ?',
-						[userId],
-					);
-					company = company as any[];
-					const companyInfo = company[0] as any;
-					const companyId = companyInfo.id;
-					const [rows] = await connection.execute(
-						'SELECT id, agent_identifier_name FROM sdr_agents WHERE company_id = ? AND status = ?',
-						[companyId, 'active'],
-					);
-					result = (rows as { id: number; agent_identifier_name: string }[]).map((row) => ({
-						name: row.agent_identifier_name,
-						value: row.id,
-					}));
+					try {
+						let [company] = await connection.execute(
+							'SELECT * FROM companies WHERE workflow_acc_id = ?',
+							[userId],
+						);
+						company = company as any[];
+						const companyInfo = company[0] as any;
+						const companyId = companyInfo.id;
+						const [rows] = await connection.execute(
+							'SELECT id, agent_identifier_name FROM sdr_agents WHERE company_id = ? AND status = ?',
+							[companyId, 'active'],
+						);
+						result = (rows as { id: number; agent_identifier_name: string }[]).map((row) => ({
+							name: row.agent_identifier_name,
+							value: row.id,
+						}));
+					} finally {
+						connection.release();
+					}
 				}
 				return result;
 			},

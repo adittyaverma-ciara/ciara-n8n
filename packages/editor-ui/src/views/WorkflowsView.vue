@@ -448,7 +448,7 @@ const onWorkflowActiveToggle = (data: { id: string; active: boolean }) => {
 		<template #header>
 			<ProjectHeader />
 		</template>
-		<template #callout>
+		<!-- <template #callout>
 			<N8nCallout
 				v-if="showEasyAIWorkflowCallout && easyAICalloutVisible"
 				theme="secondary"
@@ -476,7 +476,7 @@ const onWorkflowActiveToggle = (data: { id: string; active: boolean }) => {
 					</div>
 				</template>
 			</N8nCallout>
-		</template>
+		</template> -->
 		<template #item="{ item: data }">
 			<WorkflowCard
 				data-test-id="resources-list-item"

@@ -81,7 +81,7 @@ function getTemplatesRedirect(defaultRedirect: VIEWS[keyof VIEWS]): { name: stri
 export const routes: RouteRecordRaw[] = [
 	{
 		path: '/',
-		redirect: '/home/workflows',
+		redirect: '/workflow/new',
 		meta: {
 			middleware: ['authenticated'],
 		},

@@ -45,69 +45,76 @@ export class CallProcessor implements INodeType {
 		const userId = objectInfo?.additionalData?.userId;
 
 		const connection = await getDbConnection();
-		if (userId) {
-			let [company] = await connection.execute(
-				'SELECT * FROM companies WHERE workflow_acc_id = ?',
-				[userId],
-			);
-			company = company as any[];
-			const companyInfo = company[0] as any;
-			const companyId = companyInfo.id;
-			if (companyId) {
-				const sdrAgent = await fetchSDRAgent(connection, sdrAgentId, companyId);
-
-				if (!sdrAgent) {
-					console.log('No active SDR agent found.');
-					return [[{ json: { message: 'No active SDR agent found.' } }]];
-				}
-
-				// Check if the SDR Agent is available
-				const isAvailable = checkTimeSlotDayWise(
-					sdrAgent.scheduling_hours,
-					getWeekDayOfToday(sdrAgent.offset),
-					sdrAgent.offset,
+		try {
+			if (userId) {
+				let [company] = await connection.execute(
+					'SELECT * FROM companies WHERE workflow_acc_id = ?',
+					[userId],
 				);
+				company = company as any[];
+				const companyInfo = company[0] as any;
+				const companyId = companyInfo.id;
+				if (companyId) {
+					const sdrAgent = await fetchSDRAgent(connection, sdrAgentId, companyId);
 
-				// if (!isAvailable) {
-				// 	console.log('Agent not available in the current time slot.');
-				// 	return [[{ json: { message: 'Agent unavailable at this time.' } }]];
-				// }
+					if (!sdrAgent) {
+						console.log('No active SDR agent found.');
+						return [[{ json: { message: 'No active SDR agent found.' } }]];
+					}
 
-				// Fetch eligible contacts
-				const contacts = await fetchContacts(
-					connection,
-					segmentId,
-					sdrAgent.offset,
-					maxAttempts,
-					retryAfterDays,
-					companyId,
-				);
-				if (!contacts.length) {
-					console.log('No eligible contacts found.');
-					return [[{ json: { message: 'No eligible contacts found.' } }]];
+					// Check if the SDR Agent is available
+					// const isAvailable = checkTimeSlotDayWise(
+					// 	sdrAgent.scheduling_hours,
+					// 	getWeekDayOfToday(sdrAgent.offset),
+					// 	sdrAgent.offset,
+					// );
+
+					// if (!isAvailable) {
+					// 	console.log('Agent not available in the current time slot.');
+					// 	return [[{ json: { message: 'Agent unavailable at this time.' } }]];
+					// }
+
+					// Fetch eligible contacts
+					const contacts = await fetchContacts(
+						connection,
+						segmentId,
+						sdrAgent.offset,
+						maxAttempts,
+						retryAfterDays,
+						companyId,
+					);
+					if (!contacts.length) {
+						console.log('No eligible contacts found.');
+						return [[{ json: { message: 'No eligible contacts found.' } }]];
+					}
+
+					// Process calls
+					const callResults = await processCalls(contacts, sdrAgent, segmentId);
+
+					return [this.helpers.returnJsonArray(callResults)];
 				}
-
-				// Process calls
-				const callResults = await processCalls(contacts, sdrAgent, segmentId);
-
-				return [this.helpers.returnJsonArray(callResults)];
 			}
+			return [this.helpers.returnJsonArray([])];
+		} finally {
+			connection.release();
 		}
-		return [this.helpers.returnJsonArray([])];
 	}
 }
-
 // 🔹 Fetch SDR Agent details from DB
 async function fetchSDRAgent(connection: any, sdrAgentId: any, companyId: number) {
-	const [results] = await connection.execute(
-		`SELECT sa.*, sa.id as agent_id, tz.*
-         FROM sdr_agents AS sa
-         JOIN s_a_scheduling_details AS sasd ON sa.id = sasd.sdr_agent_id
-         JOIN timezones AS tz ON sasd.timezone = tz.id
-         WHERE sa.company_id = ? AND sa.id = ? AND sa.status = 'ACTIVE'`,
-		[companyId, sdrAgentId],
-	);
-	return results.length ? results[0] : null;
+	try {
+		const [results] = await connection.execute(
+			`SELECT sa.*, sa.id as agent_id, tz.*
+					FROM sdr_agents AS sa
+					JOIN s_a_scheduling_details AS sasd ON sa.id = sasd.sdr_agent_id
+					JOIN timezones AS tz ON sasd.timezone = tz.id
+					WHERE sa.company_id = ? AND sa.id = ? AND sa.status = 'ACTIVE'`,
+			[companyId, sdrAgentId],
+		);
+		return results.length ? results[0] : null;
+	} finally {
+		connection.release();
+	}
 }
 
 // 🔹 Fetch eligible contacts from DB
@@ -192,18 +199,26 @@ async function processCalls(contacts: any[], sdrAgent: any, segmentId: any) {
 // 🔹 Database Helper Functions
 async function storeCallDetails(records: any[]) {
 	const connection = await getDbConnection();
-	await connection.execute(
-		'INSERT INTO sdr_agents_call_details (sdr_agent_id, call_current_status, retell_call_id, company_id, lead_id, segment_id) VALUES (?, ?, ?, ?, ?, ?)',
-		records,
-	);
+	try {
+		await connection.execute(
+			'INSERT INTO sdr_agents_call_details (sdr_agent_id, call_current_status, retell_call_id, company_id, lead_id, segment_id) VALUES (?, ?, ?, ?, ?, ?)',
+			records,
+		);
+	} finally {
+		connection.release();
+	}
 }
 
 async function updateCallStatus(contactId: number, status: string) {
 	const connection = await getDbConnection();
-	await connection.execute('UPDATE customers_and_leads SET status = ? WHERE id = ?', [
-		status,
-		contactId,
-	]);
+	try {
+		await connection.execute('UPDATE customers_and_leads SET status = ? WHERE id = ?', [
+			status,
+			contactId,
+		]);
+	} finally {
+		connection.release();
+	}
 }
 
 // 🔹 Retell API Helper Functions

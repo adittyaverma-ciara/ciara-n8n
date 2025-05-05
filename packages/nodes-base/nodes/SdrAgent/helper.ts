@@ -3,6 +3,42 @@ import moment = require('moment');
 
 export type NormalObjT = Record<string, any>;
 
+export enum CustomVariableypesE {
+	CONSTANT = 'constant',
+	VARIABLE = 'variable',
+}
+export interface CustomVariableI {
+	name: string;
+	slug: string;
+	placeholder: string;
+	tooltip?: string;
+	value: string;
+	type: CustomVariableypesE;
+}
+
+export enum LeadStatusTypesE {
+	NOT_CONTACTED = 'not-contacted',
+	CONTACTED = 'contacted',
+	CALL_BACK = 'call-back',
+	CALLING = 'calling',
+	NON_RESPONSIVE = 'non-responsive',
+	DO_NOT_CALL = 'do-not-call',
+	RETRY = 'retry',
+}
+
+export enum LeadEntityTypeE {
+	LEAD_ADDED = 'customers_and_leads',
+	CALL_START = 'sdr_agents_call_details',
+	CALL_SCHEDULE = 'user_meetings',
+}
+
+export enum LeadActivityE {
+	LEAD_ADDED = 'lead-added',
+	CHAT_START = 'chat-started',
+	CALL_START = 'call-started',
+	CALL_SCHEDULE = 'call-scheduled',
+}
+
 export const getWeekDayOfToday = (utcOffset: string) =>
 	moment().utcOffset(utcOffset).format('dddd').toLowerCase();
 
@@ -85,4 +121,35 @@ export function agentVoiceProvider(voiceId: string) {
 		return 'elevenlabs';
 	}
 	return null;
+}
+
+export function extractVariableTypes(variables: CustomVariableI[]): {
+	dynamicVariable: NormalObjT;
+	constantVariables: NormalObjT;
+} {
+	const dynamicVariable: NormalObjT = {};
+	const constantVariables: NormalObjT = {};
+
+	for (const variable of variables) {
+		if (variable.type === CustomVariableypesE.VARIABLE) {
+			dynamicVariable[variable.slug] = extractVariableName(variable.value);
+		} else if (variable.type === CustomVariableypesE.CONSTANT) {
+			constantVariables[variable.slug] = variable.value;
+		}
+	}
+	return { dynamicVariable, constantVariables };
+}
+
+export function extractVariableName(value: string): string | null {
+	const match = value.trim().match(/^\{\{\s*(.+?)\s*\}\}$/);
+	if (match) {
+		const camelCase = match[1];
+		const snakeCase = camelCase.replace(/([a-z])([A-Z])/g, '$1_$2').toLowerCase();
+		return snakeCase;
+	}
+	return null;
+}
+
+export function isVariableValue(value: string): boolean {
+	return /^\{\{.+\}\}$/.test(value.trim());
 }

@@ -11,27 +11,27 @@ import { getDbConnection } from '@utils/db';
 
 export class SdrAgent implements INodeType {
 	description: INodeTypeDescription = {
-		displayName: 'SDR Agent',
+		displayName: 'Call Agent',
 		name: 'sdrAgent',
 		group: ['input'],
 		version: 1,
 		description: 'Select an SDR Agent and Segment.',
 		defaults: {
-			name: 'SDR Agent',
+			name: 'Call Agent',
 			color: '#1F72E5',
 		},
 		inputs: [NodeConnectionType.Main],
 		outputs: [NodeConnectionType.Main],
 		properties: [
 			{
-				displayName: 'SDR Agent',
+				displayName: 'Call Agent',
 				name: 'sdrAgentId',
 				type: 'options',
 				typeOptions: {
 					loadOptionsMethod: 'getSDRAgents',
 				},
 				default: '',
-				description: 'Select an SDR Agent',
+				description: 'Select a Call Agent',
 			},
 			{
 				displayName: 'Segment',

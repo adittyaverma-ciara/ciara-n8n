@@ -197,7 +197,7 @@ async function processCalls(contacts: any[], sdrAgent: any, segmentId: any) {
 					const callData = await createPhoneCall(
 						sdrAgent.agent_phone_number,
 						contact.phone_number,
-						dynamicVariableObj,
+						checkDynamicObj,
 						sdrAgent.company_id,
 						{
 							llm_model: llmModel,
@@ -286,6 +286,8 @@ async function createPhoneCall(
 	companyId: number,
 	metadata?: NormalObjT,
 ) {
+	console.log('dynamicVariables', dynamicVariables);
+	console.log('metadata', metadata);
 	const client = await getRetellClient(companyId);
 	return client?.call?.createPhoneCall({
 		from_number: fromNumber,

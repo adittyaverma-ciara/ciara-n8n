@@ -9,13 +9,13 @@ import { defaultConfig } from './helper';
 
 export class SdrAgentRules implements INodeType {
 	description: INodeTypeDescription = {
-		displayName: 'SDR Agent Rules',
+		displayName: 'Call Agent Rules',
 		name: 'sdrAgentRules',
 		group: ['transform'],
 		version: 1,
-		description: 'Apply retry rules and attempt logic for SDR Agent.',
+		description: 'Apply retry rules and attempt logic for Call Agent.',
 		defaults: {
-			name: 'SDR Agent Rules',
+			name: 'Call Agent Rules',
 			color: '#FF5733',
 		},
 		inputs: [NodeConnectionType.Main],
@@ -43,7 +43,7 @@ export class SdrAgentRules implements INodeType {
 		const { sdrAgentId, segmentId } = inputData.json;
 
 		if (!sdrAgentId || !segmentId) {
-			throw new Error('SDR Agent ID and Segment ID are required.');
+			throw new Error('Call Agent ID and Segment ID are required.');
 		}
 
 		const retryAfterDays = this.getNodeParameter(

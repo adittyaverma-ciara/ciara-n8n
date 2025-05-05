@@ -142,7 +142,12 @@ export function extractVariableTypes(variables: CustomVariableI[]): {
 
 export function extractVariableName(value: string): string | null {
 	const match = value.trim().match(/^\{\{\s*(.+?)\s*\}\}$/);
-	return match ? match[1] : null;
+	if (match) {
+		const camelCase = match[1];
+		const snakeCase = camelCase.replace(/([a-z])([A-Z])/g, '$1_$2').toLowerCase();
+		return snakeCase;
+	}
+	return null;
 }
 
 export function isVariableValue(value: string): boolean {

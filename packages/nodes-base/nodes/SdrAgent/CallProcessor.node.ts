@@ -132,8 +132,9 @@ async function fetchContacts(
 	retryAfterDays: any,
 	companyId: number,
 ) {
-	const [contacts] = await connection.execute(
-		`SELECT DISTINCT cal.*
+	try {
+		const [contacts] = await connection.execute(
+			`SELECT DISTINCT cal.*
          FROM customers_and_leads_segments AS cals
          JOIN customers_and_leads AS cal ON cals.customers_and_leads_id = cal.id
          LEFT JOIN sdr_agents_call_details AS sacd ON sacd.lead_id = cal.id
@@ -146,9 +147,12 @@ async function fetchContacts(
              AND COALESCE((SELECT MAX(created_at) FROM sdr_agents_call_details AS calls WHERE calls.lead_id = cal.id), '1970-01-01') 
              <= DATE_SUB(NOW(), INTERVAL COALESCE(?, 0) DAY)
          )`,
-		[companyId, segmentId, offset, offset, maxAttempts, retryAfterDays],
-	);
-	return contacts;
+			[companyId, segmentId, offset, offset, maxAttempts, retryAfterDays],
+		);
+		return contacts;
+	} finally {
+		connection.release();
+	}
 }
 
 // 🔹 Process calls for each eligible contact
@@ -157,11 +161,11 @@ async function processCalls(contacts: any[], sdrAgent: any, segmentId: any) {
 		try {
 			console.log(`Calling ${contact.phone_number} from ${sdrAgent.agent_phone_number}...`);
 			if (contact.phone_number && sdrAgent.agent_phone_number) {
-				const parsedCustomVariables = JSON.parse(contact.custom_variables || '[]');
+				const parsedCustomVariables = sdrAgent.custom_variable;
 
 				const { constantVariables, dynamicVariable } = extractVariableTypes(parsedCustomVariables);
 
-				const dynamicVariableObj = createDynamicObject(JSON.parse(contact?.custom_fields || '[]'));
+				const dynamicVariableObj = createDynamicObject(contact?.custom_fields);
 				const callDynamicVariable: any = {};
 				callDynamicVariable['recipientName'] = contact.name?.split(' ')?.[0] || '';
 				callDynamicVariable['productName'] = contact.product_of_interest;
@@ -186,39 +190,33 @@ async function processCalls(contacts: any[], sdrAgent: any, segmentId: any) {
 					Object.keys(callDynamicVariable),
 					callDynamicVariable,
 				);
-				const agentVoice = contact.agent_voice;
-				const llmModel = contact.llm_model;
+				const agentVoice = sdrAgent.agent_voice;
+				const llmModel = sdrAgent.llm_model;
 
 				if (checkDynamicObj) {
 					const callData = await createPhoneCall(
 						sdrAgent.agent_phone_number,
 						contact.phone_number,
 						dynamicVariableObj,
-						contact.company_id,
+						sdrAgent.company_id,
 						{
 							llm_model: llmModel,
 							voice_provider: agentVoiceProvider(agentVoice),
 						},
 					);
 
-					const sdrAgentCallId = await storeCallDetails([
+					await storeCallDetails([
 						sdrAgent.agent_id,
 						callData.call_status,
 						callData.call_id,
-						contact.company_id,
+						sdrAgent.company_id,
 						contact.id,
 						segmentId,
 						contact.priority,
 						contact.product_of_interest,
 						LeadStatusTypesE.CALLING,
 					]);
-					await storeLeadInteractionLogs([
-						sdrAgentCallId,
-						LeadEntityTypeE.CALL_START,
-						contact.id,
-						contact.company_id,
-						LeadActivityE.CALL_START,
-					]);
+
 					await updateCallStatus(contact.id, 'calling');
 					return { ...contact, ...callData };
 				} else {
@@ -295,16 +293,4 @@ async function createPhoneCall(
 		retell_llm_dynamic_variables: dynamicVariables,
 		metadata,
 	});
-}
-
-async function storeLeadInteractionLogs(record: any[]) {
-	const connection = await getDbConnection();
-	try {
-		await connection.execute(
-			'INSERT INTO lead_activity_logs (entity_id, entity_type, lead_id, company_id, activity) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-			record,
-		);
-	} finally {
-		connection.release();
-	}
 }

@@ -193,7 +193,7 @@ export async function processCalls(
 						callData.call_id,
 						sdrAgent.company_id,
 						contact.id,
-						'segmentId', // need to check
+						contact.segmentId,
 						contact.priority,
 						contact.product_of_interest,
 						LeadStatusTypesE.CALLING,

@@ -199,7 +199,13 @@ async function createLead(
 	lead: any,
 ) {
 	const isLead = await checkLeadExist(connection, lead);
-	if (isLead) return;
+	if (isLead) {
+		await Promise.all([
+			await assignLabelToLead(connection, isLead.id, companyId, labelId),
+			await assignLeadToSegment(connection, segmentId, isLead.id, companyId),
+		]);
+		return;
+	}
 
 	// Filter only valid (non-null/undefined) keys
 	const validKeys = Object.keys(lead).filter(
@@ -248,26 +254,23 @@ async function checkLeadExist(connection: any, lead: any) {
 }
 
 // 🔹 Assign label to lead
-async function assignLabelToLead(connection: any, leadId: number, companyId: number, labelId: any) {
-	if (Array.isArray(labelId) && labelId.length > 0) {
-		await Promise.all(
-			labelId.map((id) =>
-				connection.execute(
-					`INSERT INTO customers_and_leads_labels (
-					label_id, customers_and_leads_id, company_id
-				) VALUES (?, ?, ?)`,
-					[id, leadId, companyId],
-				),
-			),
-		);
-	} else {
-		await connection.execute(
-			`INSERT INTO customers_and_leads_labels (
+async function assignLabelToLead(
+	connection: any,
+	leadId: number,
+	companyId: number,
+	labelIds: number[] | number,
+) {
+	const sql = `
+		INSERT INTO customers_and_leads_labels (
 			label_id, customers_and_leads_id, company_id
-		) VALUES (?, ?, ?)`,
-			[labelId, leadId, companyId],
-		);
-	}
+		) VALUES (?, ?, ?)
+		ON DUPLICATE KEY UPDATE
+			label_id = VALUES(label_id)
+	`;
+
+	const labelArray = Array.isArray(labelIds) ? labelIds : [labelIds];
+
+	await Promise.all(labelArray.map((id) => connection.execute(sql, [id, leadId, companyId])));
 }
 
 // 🔹 add lead in segment
@@ -279,8 +282,10 @@ async function assignLeadToSegment(
 ) {
 	await connection.execute(
 		`INSERT INTO customers_and_leads_segments (
-		segment_id, customers_and_leads_id, company_id
-	) VALUES (?, ?, ?)`,
+			segment_id, customers_and_leads_id, company_id
+		) VALUES (?, ?, ?)
+		ON DUPLICATE KEY UPDATE
+			segment_id = VALUES(segment_id)`,
 		[segmentId, leadId, companyId],
 	);
 }

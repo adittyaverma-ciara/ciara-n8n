@@ -198,13 +198,38 @@ async function createLead(
 	labelId: number,
 	lead: any,
 ) {
-	const isLead = await checkLeadExist(connection, lead);
-	if (isLead) {
+	const existingLead = await checkLeadExist(connection, companyId, lead);
+	if (existingLead) {
+		const updateFields = Object.entries(lead).reduce(
+			(acc, [key, value]) => {
+				if (
+					value !== null &&
+					value !== undefined &&
+					(existingLead[key] === null ||
+						existingLead[key] === undefined ||
+						existingLead[key] === '')
+				) {
+					acc[key] = value;
+				}
+				return acc;
+			},
+			{} as Record<string, any>,
+		);
+
+		if (Object.keys(updateFields).length > 0) {
+			const setClause = Object.keys(updateFields)
+				.map((key) => `${key} = ?`)
+				.join(', ');
+			const values = Object.values(updateFields);
+			values.push(existingLead.id);
+
+			await connection.execute(`UPDATE customers_and_leads SET ${setClause} WHERE id = ?`, values);
+		}
 		await Promise.all([
-			await assignLabelToLead(connection, isLead.id, companyId, labelId),
-			await assignLeadToSegment(connection, segmentId, isLead.id, companyId),
+			assignLabelToLead(connection, existingLead.id, companyId, labelId),
+			assignLeadToSegment(connection, segmentId, existingLead.id, companyId),
 		]);
-		return;
+		return existingLead.id;
 	}
 
 	// Filter only valid (non-null/undefined) keys
@@ -231,17 +256,13 @@ async function createLead(
 }
 
 // 🔹 Check a lead is exist or not
-async function checkLeadExist(connection: any, lead: any) {
-	const conditions = [];
-	const values = [];
+async function checkLeadExist(connection: any, companyId: number, lead: any) {
+	const conditions = ['company_id = ?'];
+	const values = [companyId];
 
-	if (lead.name) {
-		conditions.push('name = ?');
-		values.push(lead.name);
-	}
-	if (lead.phone_number) {
-		conditions.push('phone_number = ?');
-		values.push(lead.phone_number);
+	if (lead?.crm_metadata?.id) {
+		conditions.push("crm_metadata->>'$.id' = ?");
+		values.push(lead?.crm_metadata?.id);
 	}
 
 	if (!conditions.length) return null;

@@ -6,6 +6,7 @@ import {
 	IExecuteFunctions,
 	INodeExecutionData,
 	NodeConnectionType,
+	NodeOperationError,
 } from 'n8n-workflow';
 import { getDbConnection } from '@utils/db';
 import {
@@ -84,55 +85,37 @@ export class CallAgent implements INodeType {
 
 	async execute(this: IExecuteFunctions): Promise<INodeExecutionData[][]> {
 		const connection = await getDbConnection();
+		const objectInfo = Object.assign(this);
+		const timezone = objectInfo?.workflow?.settings?.timezone || 'UTC';
+
 		try {
 			const sdrAgentId = this.getNodeParameter('sdrAgentId', 0) as number;
 
 			let sdrAgent;
 			if (sdrAgentId) {
 				sdrAgent = await fetchSDRAgent(connection, sdrAgentId);
-				console.log({ sdrAgentId, sdrAgent });
-			} else return [[{ json: { message: 'No active Call agent found.' } }]];
-
+			} else throw new NodeOperationError(this.getNode(), 'No active Call agent found.');
 			const inputData = this.getInputData();
-			console.log('inputData:::', inputData);
-			const [testinput] = this.getInputData();
-			const { contacts } = testinput.json;
-			console.log('contacts:::', contacts);
+			const contacts = inputData?.map((input) => input.json) || [];
 
 			// Process calls
-			// const callResults = await processCalls(connection, contacts, sdrAgent);
+			const callResults = await processCalls(connection, contacts, sdrAgent, timezone);
 
 			// return [this.helpers.returnJsonArray(callResults)];
-
-			return [
-				[
-					{
-						json: {
-							sdrAgentId,
-						},
-					},
-				],
-			];
+			return callResults?.length > 0
+				? [
+						callResults?.map((contact) => ({
+							json: {
+								contact,
+							},
+						})),
+					]
+				: [];
 		} catch (error) {
 			connection.release();
-			return [
-				// need to check
-				[
-					{
-						json: {},
-					},
-				],
-			];
+			throw new NodeOperationError(this.getNode(), error.message || 'Unknown error');
 		} finally {
 			connection.release();
-			return [
-				// need to check
-				[
-					{
-						json: {},
-					},
-				],
-			];
 		}
 	}
 }
@@ -149,7 +132,12 @@ async function fetchSDRAgent(connection: any, sdrAgentId: number) {
 }
 
 // 🔹 Process calls for previous nodes contact
-export async function processCalls(connection: any, contacts: any, sdrAgent: any) {
+export async function processCalls(
+	connection: any,
+	contacts: any,
+	sdrAgent: any,
+	timezone: string,
+) {
 	const callPromises = contacts.map(async (contact: any) => {
 		try {
 			console.log(`Calling ${contact.phone_number} from ${sdrAgent.agent_phone_number}...`);
@@ -162,7 +150,7 @@ export async function processCalls(connection: any, contacts: any, sdrAgent: any
 				const callDynamicVariable: any = {};
 				callDynamicVariable['recipientName'] = contact.name?.split(' ')?.[0] || '';
 				callDynamicVariable['productName'] = contact.product_of_interest;
-				callDynamicVariable['currentTime'] = adjustTimeByOffset(new Date(), sdrAgent.offset); // need to check
+				callDynamicVariable['currentTime'] = adjustTimeByOffset(new Date(), timezone);
 
 				const leadDetails = {
 					...dynamicVariableObj,
@@ -191,7 +179,7 @@ export async function processCalls(connection: any, contacts: any, sdrAgent: any
 						connection,
 						sdrAgent.agent_phone_number,
 						contact.phone_number,
-						checkDynamicObj,
+						callDynamicVariable,
 						sdrAgent.company_id,
 						{
 							llm_model: llmModel,
@@ -212,10 +200,10 @@ export async function processCalls(connection: any, contacts: any, sdrAgent: any
 					]);
 
 					await updateCallStatus(connection, contact.id, 'calling');
-					return { ...contact, ...callData };
+					return contact;
 				} else {
 					console.log(
-						`Skipping call for lead ${contact.id} (not eligible). \nvariables : ${JSON.stringify(checkDynamicObj, null, 3)}`,
+						`Skipping call for lead ${contact.id} (not eligible). \nvariables : ${JSON.stringify(callDynamicVariable, null, 3)}`,
 					);
 				}
 			} else

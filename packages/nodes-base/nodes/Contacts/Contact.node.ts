@@ -6,6 +6,7 @@ import {
 	NodeConnectionType,
 	ILoadOptionsFunctions,
 	INodePropertyOptions,
+	NodeOperationError,
 } from 'n8n-workflow';
 import { getDbConnection } from '@utils/db';
 
@@ -73,57 +74,65 @@ export class Contact implements INodeType {
 		const connection = await getDbConnection();
 		const segmentId = this.getNodeParameter('segmentId', 0) as number;
 
-		let segment,
-			contacts: any[] = [];
-		if (segmentId) {
-			segment = await fetchSegment(connection, segmentId);
-			console.log({ segmentId, segment });
-		} else return [[{ json: { message: 'No active SegmentId found.' } }]];
-		if (segment) {
-			const segmentLabelId = (
-				segment.filter_metadata?.find((f: any) => f.slug === 'labels')?.value || []
-			).map((id: any) => Number(id));
+		let contacts: any[] = [];
+		try {
+			let segment;
+			if (segmentId) {
+				segment = await fetchSegment(connection, segmentId);
+			} else throw new NodeOperationError(this.getNode(), 'No active SegmentId found.');
+			if (segment) {
+				const segmentLabelId = (
+					segment.filter_metadata?.find((f: any) => f.slug === 'labels')?.value || []
+				).map((id: any) => Number(id));
 
-			const inputData = this.getInputData();
+				const inputData = this.getInputData();
 
-			// const leads = nodeFieldMapping(inputData);
-			// console.log(leads);
+				// const leads = nodeFieldMapping(inputData);
+				// console.log(leads);
 
-			const objectInfo = Object.assign(this);
+				// const objectInfo = Object.assign(this);
 
-			// find a contact crm source
-			type NodeInfo = { type: string; name?: string };
+				// // find a contact crm source
+				// type NodeInfo = { type: string; name?: string };
 
-			const matchedLabel = Object.values(
-				objectInfo.workflow.nodes as Record<string, NodeInfo>,
-			).find((node) => getNodeTypeLabel(node.type) !== 'other')?.type;
+				// const matchedLabel = Object.values(
+				// 	objectInfo.workflow.nodes as Record<string, NodeInfo>,
+				// ).find((node) => getNodeTypeLabel(node.type) !== 'other')?.type;
 
-			const crmSource = matchedLabel ? getNodeTypeLabel(matchedLabel) : 'other';
-			const leads_crm = CRMFieldMapping(crmSource, inputData);
-			console.log(leads_crm);
+				// const crmSource = matchedLabel ? getNodeTypeLabel(matchedLabel) : 'other';
+				const crm_leads_ = fieldMappingFromPreviousNode(inputData);
 
-			if (Array.isArray(leads_crm) && leads_crm.length > 0) {
-				await Promise.all(
-					leads_crm.map((lead) =>
-						createLead(connection, segment.company_id, segmentLabelId, {
-							...lead,
-							company_id: segment.company_id,
-						}),
-					),
-				);
+				if (Array.isArray(crm_leads_) && crm_leads_.length > 0) {
+					await Promise.all(
+						crm_leads_.map((lead) =>
+							createLead(connection, segment.company_id, segment.id, segmentLabelId, {
+								...lead,
+								company_id: segment.company_id,
+								status: 'not-contacted',
+							}),
+						),
+					);
+				}
+				await updateSegmentLeadCount(connection, segment.id, segment.company_id);
+				contacts = await fetchContacts(connection, segment.id, segment.company_id);
 			}
-		}
 
-		return [
-			[
-				{
-					json: {
-						segmentId,
-						contacts,
-					},
-				},
-			],
-		];
+			return contacts?.length > 0
+				? [
+						contacts?.map((contact) => ({
+							json: {
+								segmentId,
+								...contact,
+							},
+						})),
+					]
+				: [];
+		} catch (error) {
+			connection.release();
+			throw new NodeOperationError(this.getNode(), error.message || 'Unknown error');
+		} finally {
+			connection.release();
+		}
 	}
 }
 
@@ -166,6 +175,10 @@ function CRMFieldMapping(source: string, inputData: any[]) {
 	}
 }
 
+function fieldMappingFromPreviousNode(inputData: any[]) {
+	return inputData?.map((input) => input.json) || [];
+}
+
 // 🔹 Fetch Segment details from DB
 async function fetchSegment(connection: any, segmentId: number) {
 	const [results] = await connection.execute(
@@ -177,31 +190,14 @@ async function fetchSegment(connection: any, segmentId: number) {
 	return results.length ? results[0] : null;
 }
 
-// 🔹 Assign label to lead
-async function assignLabelToLead(connection: any, leadId: number, companyId: number, labelId: any) {
-	if (Array.isArray(labelId) && labelId.length > 0) {
-		await Promise.all(
-			labelId.map((id) =>
-				connection.execute(
-					`INSERT INTO customers_and_leads_labels (
-					label_id, customers_and_leads_id, company_id
-				) VALUES (?, ?, ?)`,
-					[id, leadId, companyId],
-				),
-			),
-		);
-	} else {
-		const [result]: any = await connection.execute(
-			`INSERT INTO customers_and_leads_labels (
-			label_id, customers_and_leads_id, company_id
-		) VALUES (?, ?, ?)`,
-			[labelId, leadId, companyId],
-		);
-	}
-}
-
 // 🔹 Create a lead
-async function createLead(connection: any, companyId: number, labelId: number, lead: any) {
+async function createLead(
+	connection: any,
+	companyId: number,
+	segmentId: number,
+	labelId: number,
+	lead: any,
+) {
 	const isLead = await checkLeadExist(connection, lead);
 	if (isLead) return;
 
@@ -217,13 +213,14 @@ async function createLead(connection: any, companyId: number, labelId: number, l
 	const columns = validKeys.join(', ');
 	const placeholders = validKeys.map(() => '?').join(', ');
 	const values = validKeys.map((key) => lead[key]);
-	console.log({ columns, placeholders });
-
 	const [result]: any = await connection.execute(
 		`INSERT INTO customers_and_leads (${columns}) VALUES (${placeholders})`,
 		values,
 	);
-	await assignLabelToLead(connection, result.insertId, companyId, labelId);
+	await Promise.all([
+		await assignLabelToLead(connection, result.insertId, companyId, labelId),
+		await assignLeadToSegment(connection, segmentId, result.insertId, companyId),
+	]);
 	return result.insertId;
 }
 
@@ -242,12 +239,75 @@ async function checkLeadExist(connection: any, lead: any) {
 	}
 
 	if (!conditions.length) return null;
-	console.log({ conditions, values });
-
 	const [results] = await connection.execute(
 		`SELECT id FROM customers_and_leads WHERE ${conditions.join(' AND ')}`,
 		values,
 	);
 
 	return results.length ? results[0] : null;
+}
+
+// 🔹 Assign label to lead
+async function assignLabelToLead(connection: any, leadId: number, companyId: number, labelId: any) {
+	if (Array.isArray(labelId) && labelId.length > 0) {
+		await Promise.all(
+			labelId.map((id) =>
+				connection.execute(
+					`INSERT INTO customers_and_leads_labels (
+					label_id, customers_and_leads_id, company_id
+				) VALUES (?, ?, ?)`,
+					[id, leadId, companyId],
+				),
+			),
+		);
+	} else {
+		await connection.execute(
+			`INSERT INTO customers_and_leads_labels (
+			label_id, customers_and_leads_id, company_id
+		) VALUES (?, ?, ?)`,
+			[labelId, leadId, companyId],
+		);
+	}
+}
+
+// 🔹 add lead in segment
+async function assignLeadToSegment(
+	connection: any,
+	segmentId: number,
+	leadId: number,
+	companyId: number,
+) {
+	await connection.execute(
+		`INSERT INTO customers_and_leads_segments (
+		segment_id, customers_and_leads_id, company_id
+	) VALUES (?, ?, ?)`,
+		[segmentId, leadId, companyId],
+	);
+}
+
+// 🔹 update segment's leads count
+async function updateSegmentLeadCount(connection: any, segmentId: number, companyId: number) {
+	const [result] = await connection.execute(
+		`SELECT COUNT(id) AS total FROM customers_and_leads_segments WHERE segment_id = ? AND company_id = ?`,
+		[segmentId, companyId],
+	);
+	const segmentLeadsCount = result[0]?.total || 0;
+	if (segmentLeadsCount)
+		await connection.execute(`UPDATE segments SET no_of_contacts = ? WHERE id = ?`, [
+			segmentLeadsCount,
+			segmentId,
+		]);
+}
+
+// 🔹 Fetch eligible contacts from DB
+async function fetchContacts(connection: any, segmentId: any, companyId: number) {
+	const [contacts] = await connection.execute(
+		`SELECT DISTINCT cal.*
+         FROM customers_and_leads_segments AS cals
+         JOIN customers_and_leads AS cal ON cals.customers_and_leads_id = cal.id
+         WHERE cals.company_id = ? AND cals.segment_id = ?
+         AND cal.status NOT IN ('calling', 'non-responsive', 'do-not-call', 'contacted')`,
+		[companyId, segmentId],
+	);
+	return contacts;
 }

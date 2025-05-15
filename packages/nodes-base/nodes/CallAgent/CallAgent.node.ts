@@ -98,7 +98,7 @@ export class CallAgent implements INodeType {
 
 		try {
 			const sdrAgentId = this.getNodeParameter('sdrAgentId', 0) as number;
-			sendEngineWebhook({ agentId: sdrAgentId, isRunning: true }, engineWebhookUrl);
+			await sendEngineWebhook({ agentId: sdrAgentId, isRunning: true }, engineWebhookUrl);
 
 			if (sdrAgentId) {
 				sdrAgent = await fetchSDRAgent(connection, sdrAgentId);
@@ -125,7 +125,7 @@ export class CallAgent implements INodeType {
 		} finally {
 			connection.release();
 			if (sdrAgentId) {
-				sendEngineWebhook({ agentId: sdrAgentId, isRunning: false }, engineWebhookUrl);
+				await sendEngineWebhook({ agentId: sdrAgentId, isRunning: false }, engineWebhookUrl);
 			}
 		}
 	}
@@ -280,7 +280,7 @@ export async function sendEngineWebhook(
 	const body = JSON.stringify(payload);
 	const config: AxiosRequestConfig = {
 		method: 'POST',
-		url: engineWebhookUrl,
+		url: `${engineWebhookUrl}/webhooks/sdragent/running-status`,
 		data: body,
 	};
 	await axios.request(config);

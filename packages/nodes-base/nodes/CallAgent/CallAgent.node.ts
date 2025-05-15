@@ -21,6 +21,10 @@ import {
 	NormalObjT,
 } from './helper';
 import Retell from 'retell-sdk';
+import { GlobalConfig } from '@n8n/config';
+import axios from 'axios';
+import { AxiosRequestConfig } from 'axios';
+import { Container } from '@n8n/di';
 
 export class CallAgent implements INodeType {
 	description: INodeTypeDescription = {
@@ -84,14 +88,18 @@ export class CallAgent implements INodeType {
 	};
 
 	async execute(this: IExecuteFunctions): Promise<INodeExecutionData[][]> {
+		const globalConfig = Container.get(GlobalConfig);
+		const engineWebhookUrl = globalConfig.nodes['engineWebhookUrl'];
+
 		const connection = await getDbConnection();
 		const objectInfo = Object.assign(this);
 		const timezone = objectInfo?.workflow?.settings?.timezone || 'UTC';
+		let sdrAgent, sdrAgentId;
 
 		try {
 			const sdrAgentId = this.getNodeParameter('sdrAgentId', 0) as number;
+			sendEngineWebhook({ agentId: sdrAgentId, isRunning: true }, engineWebhookUrl);
 
-			let sdrAgent;
 			if (sdrAgentId) {
 				sdrAgent = await fetchSDRAgent(connection, sdrAgentId);
 			} else throw new NodeOperationError(this.getNode(), 'No active Call agent found.');
@@ -116,6 +124,9 @@ export class CallAgent implements INodeType {
 			throw new NodeOperationError(this.getNode(), error.message || 'Unknown error');
 		} finally {
 			connection.release();
+			if (sdrAgentId) {
+				sendEngineWebhook({ agentId: sdrAgentId, isRunning: false }, engineWebhookUrl);
+			}
 		}
 	}
 }
@@ -260,4 +271,17 @@ export async function createPhoneCall(
 		retell_llm_dynamic_variables: dynamicVariables,
 		metadata,
 	});
+}
+
+export async function sendEngineWebhook(
+	payload: { agentId: number; isRunning: boolean },
+	engineWebhookUrl: string,
+) {
+	const body = JSON.stringify(payload);
+	const config: AxiosRequestConfig = {
+		method: 'POST',
+		url: engineWebhookUrl,
+		data: body,
+	};
+	await axios.request(config);
 }

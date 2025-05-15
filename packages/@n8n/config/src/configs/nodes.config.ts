@@ -53,6 +53,10 @@ export class NodesConfig {
 	@Env('NODES_ERROR_TRIGGER_TYPE')
 	errorTriggerType: string = 'n8n-nodes-base.errorTrigger';
 
+	/** Node type to use as error trigger */
+	@Env('ENGINE_WEBHOOK_URL')
+	engineWebhookUrl: string;
+
 	@Nested
 	communityPackages: CommunityPackagesConfig;
 }

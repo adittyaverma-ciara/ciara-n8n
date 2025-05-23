@@ -9,8 +9,6 @@ import { getDbConnection } from '@utils/db';
 import {
 	createDynamicObject,
 	adjustTimeByOffset,
-	getWeekDayOfToday,
-	checkTimeSlotDayWise,
 	checkDynamicObject,
 	agentVoiceProvider,
 	NormalObjT,
@@ -18,8 +16,6 @@ import {
 	isVariableValue,
 	extractVariableName,
 	LeadStatusTypesE,
-	LeadEntityTypeE,
-	LeadActivityE,
 } from './helper';
 import Retell from 'retell-sdk';
 

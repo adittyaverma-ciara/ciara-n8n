@@ -55,7 +55,7 @@ export class NodesConfig {
 
 	/** Node type to use as error trigger */
 	@Env('ENGINE_WEBHOOK_URL')
-	engineWebhookUrl: string;
+	engineWebhookUrl: string = 'http://localhost:8080';
 
 	@Nested
 	communityPackages: CommunityPackagesConfig;

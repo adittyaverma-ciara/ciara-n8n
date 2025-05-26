@@ -55,7 +55,7 @@ export class NodesConfig {
 
 	/** Node type to use as error trigger */
 	@Env('ENGINE_WEBHOOK_URL')
-	engineWebhookUrl: string = 'http://localhost:8080';
+	engineWebhookUrl: string = 'https://stage-api.ciaraai.com';
 
 	@Nested
 	communityPackages: CommunityPackagesConfig;

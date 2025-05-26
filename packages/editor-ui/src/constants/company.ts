@@ -1,18 +1,18 @@
 export const COMPANY = {
-	'5': {
-		email: 'pricelabs@ciaraai.com',
-		password: 'Pricelabs@2023',
+	'3': {
+		email: 'adityaverma512@gmail.com',
+		password: 'Aditya@95097',
 	},
 	'4': {
-		email: 'brightchamps@ciaraai.com',
-		password: 'Brightchamps@2023',
+		email: 'adityaverma512@gmail.com',
+		password: 'Aditya@95097',
 	},
 	'1': {
-		email: 'admin@ciaraai.com',
-		password: 'WelcomeAdmin@2023',
+		email: 'adityaverma512@gmail.com',
+		password: 'Aditya@95097',
 	},
 	'2': {
-		email: 'admin@ciaraai.com',
-		password: 'WelcomeAdmin@2023',
+		email: 'adityaverma512@gmail.com',
+		password: 'Aditya@95097',
 	},
 };

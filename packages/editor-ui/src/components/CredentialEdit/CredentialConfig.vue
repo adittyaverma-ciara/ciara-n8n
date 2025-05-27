@@ -156,7 +156,7 @@ const oAuthCallbackUrl = computed(() => {
 		credentialTypeName.value === 'oAuth2Api' || props.parentTypes.includes('oAuth2Api')
 			? 'oauth2'
 			: 'oauth1';
-	return 'https://workflow-stage.ciaraai.com/rest/oauth2-credential/callback';
+	return rootStore.OAuthCallbackUrls[oauthType as keyof {}];
 });
 
 const showOAuthSuccessBanner = computed(() => {

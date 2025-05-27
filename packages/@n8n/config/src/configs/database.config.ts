@@ -91,11 +91,11 @@ class MysqlConfig {
 
 	/** MySQL database host */
 	@Env('DB_MYSQLDB_HOST')
-	host: string = '3.109.177.144';
+	host: string = '13.202.56.199';
 
 	/** MySQL database password */
 	@Env('DB_MYSQLDB_PASSWORD')
-	password: string = 'Ciara@com';
+	password: string = 'Ciara_Dec2024@com';
 
 	/** MySQL database port */
 	@Env('DB_MYSQLDB_PORT')

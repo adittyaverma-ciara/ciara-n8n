@@ -9,7 +9,7 @@ const navigateTo = () => {
 	// void router.push({ name: VIEWS.TEMPLATES });
 	// console.log('process.env => ', process.env);
 	// window.location.href(`${process.env.VUE_APP_PLATFORM_URL}/workflows`);
-	window.location.replace('https://stage.ciaraai.com/workflows');
+	window.location.replace('https://app.ciaraai.com/workflows');
 };
 </script>
 

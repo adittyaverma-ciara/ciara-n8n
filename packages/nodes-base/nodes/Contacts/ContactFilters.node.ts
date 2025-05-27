@@ -9,7 +9,7 @@ import {
 import { getDbConnection } from '@utils/db';
 import moment = require('moment');
 
-export class Contacts implements INodeType {
+export class ContactFilters implements INodeType {
 	description: INodeTypeDescription = {
 		displayName: 'Contact Filter Node',
 		name: 'contactFilterNode',
@@ -283,7 +283,7 @@ export class Contacts implements INodeType {
 	async execute(this: IExecuteFunctions): Promise<INodeExecutionData[][]> {
 		const connection = await getDbConnection();
 		const { rawQuery, orderBy, recordsPerPage, offset } = generatContactQuery(this);
-		const query = `${rawQuery} ORDER BY ${orderBy} LIMIT ${recordsPerPage} OFFSET ${offset}`;
+		const query = `${rawQuery} ORDER BY ${orderBy}`; // LIMIT ${recordsPerPage} OFFSET ${offset}
 
 		// Execute Query
 		const [data] = (await connection.execute(query)) as any[];

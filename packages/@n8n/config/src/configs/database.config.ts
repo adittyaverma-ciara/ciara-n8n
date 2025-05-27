@@ -91,11 +91,11 @@ class MysqlConfig {
 
 	/** MySQL database host */
 	@Env('DB_MYSQLDB_HOST')
-	host: string = 'localhost';
+	host: string = '3.109.177.144';
 
 	/** MySQL database password */
 	@Env('DB_MYSQLDB_PASSWORD')
-	password: string = 'admin';
+	password: string = 'Ciara@com';
 
 	/** MySQL database port */
 	@Env('DB_MYSQLDB_PORT')
@@ -103,7 +103,7 @@ class MysqlConfig {
 
 	/** MySQL database user */
 	@Env('DB_MYSQLDB_USER')
-	user: string = 'root';
+	user: string = 'ciara';
 }
 
 @Config

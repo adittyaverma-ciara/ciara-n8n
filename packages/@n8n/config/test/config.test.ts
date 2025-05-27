@@ -123,6 +123,7 @@ describe('GlobalConfig', () => {
 			errorTriggerType: 'n8n-nodes-base.errorTrigger',
 			include: [],
 			exclude: [],
+			engineWebhookUrl: '',
 		},
 		publicApi: {
 			disabled: false,

@@ -1,5 +1,6 @@
 import { camelCase, isArray, isObject, transform } from 'lodash';
 import moment = require('moment');
+import momentTz from 'moment-timezone';
 
 export type NormalObjT = Record<string, any>;
 
@@ -95,9 +96,9 @@ export function createDynamicObject(transformedData: Record<string, any>[]) {
 	}, {});
 }
 
-export const adjustTimeByOffset = (date: Date, utcOffset: string, format?: string) => {
+export const adjustTimeByOffset = (date: Date, timezone: string) => {
 	// Adjust the UTC time by the offset
-	return moment(date).utcOffset(utcOffset).format(format);
+	return momentTz(date).tz(timezone).format();
 };
 
 export function checkDynamicObject(variables: string[], dataMap: Record<string, any>) {

@@ -277,11 +277,15 @@ export async function sendEngineWebhook(
 	payload: { agentId: number; isRunning: boolean },
 	engineWebhookUrl: string,
 ) {
-	const body = JSON.stringify(payload);
-	const config: AxiosRequestConfig = {
-		method: 'POST',
-		url: `${engineWebhookUrl}/webhooks/sdragent/running-status`,
-		data: body,
-	};
-	await axios.request(config);
+	try {
+		const body = JSON.stringify(payload);
+		const config: AxiosRequestConfig = {
+			method: 'POST',
+			url: `${engineWebhookUrl}/webhooks/sdragent/running-status`,
+			data: body,
+		};
+		await axios.request(config);
+	} catch (error) {
+		console.error(`Error at updating agent "${payload.agentId}" status  :`, error);
+	}
 }

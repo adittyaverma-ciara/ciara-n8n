@@ -176,7 +176,9 @@ function CRMFieldMapping(source: string, inputData: any[]) {
 }
 
 function fieldMappingFromPreviousNode(inputData: any[]) {
-	return inputData?.map((input) => input.json) || [];
+	return inputData
+		.map((input) => input.json)
+		.filter((json) => json && Object.keys(json).length > 0);
 }
 
 // 🔹 Fetch Segment details from DB

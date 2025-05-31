@@ -455,8 +455,8 @@ export class WorkflowService {
 		const connection = await getDbConnection();
 		try {
 			await connection.execute(
-				`UPDATE ciara_playbook_executions SET status = ? WHERE playbook_id = ?`,
-				['deleted', playbook_id],
+				`UPDATE ciara_playbook_executions SET status = ?, is_active = ? WHERE playbook_id = ?`,
+				['deleted', false, playbook_id],
 			);
 		} catch (error) {
 			connection.release();

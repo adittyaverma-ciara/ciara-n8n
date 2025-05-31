@@ -131,6 +131,7 @@ export class CallAgent implements INodeType {
 					workflow.name,
 					sdrAgentId,
 					segmentId,
+					workflow.active,
 				]);
 			}
 			connection.release();
@@ -256,8 +257,8 @@ export async function updateCallStatus(connection: any, contactId: number, statu
 export async function storeExecutionDetails(connection: any, record: any[]) {
 	const [result]: any = await connection.execute(
 		`INSERT INTO ciara_playbook_executions (
-			playbook_id, playbook_name, agent_id, segment_id
-		) VALUES (?, ?, ?, ?)`,
+			playbook_id, playbook_name, agent_id, segment_id, is_active
+		) VALUES (?, ?, ?, ?, ?)`,
 		record,
 	);
 	return result.insertId;

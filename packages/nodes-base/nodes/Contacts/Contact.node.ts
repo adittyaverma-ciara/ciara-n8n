@@ -73,6 +73,7 @@ export class Contact implements INodeType {
 	async execute(this: IExecuteFunctions): Promise<INodeExecutionData[][]> {
 		const connection = await getDbConnection();
 		const segmentId = this.getNodeParameter('segmentId', 0) as number;
+		const executeMode = this.getMode();
 
 		let contacts: any[] = [];
 		try {
@@ -114,7 +115,12 @@ export class Contact implements INodeType {
 					);
 				}
 				await updateSegmentLeadCount(connection, segment.id, segment.company_id);
-				contacts = await fetchContacts(connection, segment.id, segment.company_id);
+				contacts = await fetchContacts(
+					connection,
+					segment.id,
+					segment.company_id,
+					executeMode === 'manual',
+				);
 			}
 
 			return contacts?.length > 0
@@ -328,13 +334,23 @@ async function updateSegmentLeadCount(connection: any, segmentId: number, compan
 }
 
 // 🔹 Fetch eligible contacts from DB
-async function fetchContacts(connection: any, segmentId: any, companyId: number) {
+async function fetchContacts(
+	connection: any,
+	segmentId: any,
+	companyId: number,
+	isManualExecuted: boolean,
+) {
 	const [contacts] = await connection.execute(
 		`SELECT DISTINCT cal.*
          FROM customers_and_leads_segments AS cals
          JOIN customers_and_leads AS cal ON cals.customers_and_leads_id = cal.id
          WHERE cals.company_id = ? AND cals.segment_id = ?
-         AND cal.status NOT IN ('calling', 'non-responsive', 'do-not-call', 'contacted')`,
+		 ${
+				!isManualExecuted
+					? `AND cal.status NOT IN ('calling', 'non-responsive', 'do-not-call', 'contacted')`
+					: ''
+			}
+         `,
 		[companyId, segmentId],
 	);
 	return contacts;

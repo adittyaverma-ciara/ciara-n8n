@@ -108,7 +108,7 @@ export class CallAgent implements INodeType {
 
 			segmentId = contacts.length > 0 ? contacts[0].segmentId : null;
 			// Process calls
-			const callResults = await processCalls(connection, contacts, sdrAgent, timezone);
+			const callResults = await processCalls(connection, contacts, sdrAgent, timezone, workflow.id);
 
 			// return [this.helpers.returnJsonArray(callResults)];
 			return callResults?.length > 0
@@ -156,6 +156,7 @@ export async function processCalls(
 	contacts: any,
 	sdrAgent: any,
 	timezone: string,
+	workflowId?: string,
 ) {
 	const callPromises = contacts.map(async (contact: any) => {
 		try {
@@ -216,6 +217,7 @@ export async function processCalls(
 						contact.priority,
 						contact.product_of_interest,
 						LeadStatusTypesE.CALLING,
+						workflowId,
 					]);
 
 					await updateCallStatus(connection, contact.id, 'calling');
@@ -240,8 +242,8 @@ export async function storeCallDetails(connection: any, record: any[]) {
 	const [result]: any = await connection.execute(
 		`INSERT INTO sdr_agents_call_details (
 			sdr_agent_id, call_current_status, retell_call_id, company_id, 
-			lead_id, segment_id, lead_priority, lead_product_of_interest, lead_status
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			lead_id, segment_id, lead_priority, lead_product_of_interest, lead_status, playbook_id
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		record,
 	);
 	return result.insertId;

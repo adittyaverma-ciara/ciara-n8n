@@ -282,6 +282,9 @@ export async function sendEngineWebhook(
 		const config: AxiosRequestConfig = {
 			method: 'POST',
 			url: `${engineWebhookUrl}/webhooks/sdragent/running-status`,
+			headers: {
+				'Content-Type': 'application/json',
+			},
 			data: body,
 		};
 		await axios.request(config);

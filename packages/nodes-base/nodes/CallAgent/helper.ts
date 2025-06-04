@@ -40,6 +40,12 @@ export enum LeadActivityE {
 	CALL_SCHEDULE = 'call-scheduled',
 }
 
+export enum RetellCallTypesE {
+	PHONE_CALL = 'phone_call',
+	TEST_PHONE_CALL = 'test_phone_call',
+	TEST_WEB_CALL = 'test_web_call',
+}
+
 export const getWeekDayOfToday = (utcOffset: string) =>
 	moment().utcOffset(utcOffset).format('dddd').toLowerCase();
 

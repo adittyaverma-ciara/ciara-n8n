@@ -451,8 +451,8 @@ export class ScheduleTrigger implements INodeType {
 				Timezone: `${timezone} (UTC${momentTz.format('Z')})`,
 			};
 
-			const aboveStartDate = await checkStartValidation(workflowId, timezone);
-			if (!aboveStartDate) return;
+			const isWorkflowEligibleToStart = await isStartDatePassed(workflowId, timezone);
+			if (!isWorkflowEligibleToStart) return;
 
 			this.emit([this.helpers.returnJsonArray([resultData])]);
 		};
@@ -575,15 +575,17 @@ async function getTimezone(connection: any, timezone_id: string) {
 	return timezoneData;
 }
 
-async function checkStartValidation(workflowId: string, timezone: string) {
-	const scheduleData = await getSchedulingDetailsFromDB(workflowId);
-	if (!scheduleData) return false;
-	const startDate = scheduleData.start_date;
-	if (!startDate) return true;
-	const givenDate = moment.tz(startDate, timezone).startOf('day');
-	const currentDate = moment.tz(timezone);
-	if (currentDate.isAfter(givenDate)) return true;
-	else return false;
+async function isStartDatePassed(workflowId: string, timezone: string): Promise<boolean> {
+	const schedule = await getSchedulingDetailsFromDB(workflowId);
+	if (!schedule) return false;
+
+	const startDate = schedule.start_date;
+	if (!startDate) return true; // No start date means no restriction
+
+	const scheduledStart = moment.tz(startDate, timezone).startOf('day');
+	const now = moment.tz(timezone);
+
+	return now.isAfter(scheduledStart);
 }
 
 type Slot = { from: string; to: string };
@@ -599,6 +601,7 @@ const dayMap: Record<string, number> = {
 	friday: 5,
 	saturday: 6,
 };
+
 function createCronIntervals(schedule: Schedule, frequencyInMinutes = 1): string[] {
 	const cronExpressions: string[] = [];
 
@@ -606,45 +609,52 @@ function createCronIntervals(schedule: Schedule, frequencyInMinutes = 1): string
 		if (!data.isActive) continue;
 
 		const dayNum = dayMap[day.toLowerCase()];
-		if (dayNum === undefined) continue;
-		if (!data.slots || data.slots.length === 0) continue;
+		if (dayNum === undefined || !data.slots || data.slots.length === 0) continue;
 
 		for (const slot of data.slots) {
-			// Parse 'from' and 'to'
-			const [fromHour, fromMin] = slot.from.split(':').map(Number);
-			const [toHour, toMin] = slot.to.split(':').map(Number);
+			let [fromHour, fromMin] = slot.from.split(':').map(Number);
+			let [toHour, toMin] = slot.to.split(':').map(Number);
 
-			if (fromHour > toHour || (fromHour === toHour && fromMin >= toMin)) {
-				// invalid slot, skip
+			// Handle 24:00 as 23:59
+			if (toHour === 24 && toMin === 0) {
+				toHour = 23;
+				toMin = 59;
+			}
+
+			// Invalid range check
+			if (fromHour > toHour || (fromHour === toHour && fromMin >= toMin)) continue;
+
+			// Case: same hour
+			if (fromHour === toHour) {
+				if (fromMin < toMin) {
+					cronExpressions.push(
+						`${fromMin}-${toMin - 1}/${frequencyInMinutes} ${fromHour} * * ${dayNum}`,
+					);
+				}
 				continue;
 			}
 
-			// Case 1: slot within the same hour or multiple hours
-			// We must split cron if minutes range is partial for first or last hour
-
-			// For simplicity:
-			// Generate cron for full hours between fromHour+1 to toHour-1 if any
-			// Handle fromHour partial minutes (from fromMin to 59)
-			// Handle toHour partial minutes (from 0 to toMin-1)
-
-			// 1. Partial first hour (from fromMin to 59)
+			// 1. Partial first hour
 			if (fromMin > 0) {
 				cronExpressions.push(`${fromMin}-59/${frequencyInMinutes} ${fromHour} * * ${dayNum}`);
 			} else {
-				// fromMin=0 means whole hour
+				// Whole first hour
 				cronExpressions.push(`*/${frequencyInMinutes} ${fromHour} * * ${dayNum}`);
 			}
 
-			// 2. Full hours between fromHour+1 and toHour-1
-			for (let h = fromHour + 1; h < toHour; h++) {
-				cronExpressions.push(`*/${frequencyInMinutes} ${h} * * ${dayNum}`);
+			// 2. Full hours
+			const fullHourStart = fromHour + 1;
+			const fullHourEnd = toHour - 1;
+			if (fullHourStart <= fullHourEnd) {
+				cronExpressions.push(
+					`*/${frequencyInMinutes} ${fullHourStart}-${fullHourEnd} * * ${dayNum}`,
+				);
 			}
 
-			// 3. Partial last hour (0 to toMin-1)
+			// 3. Partial last hour
 			if (toMin > 0) {
 				cronExpressions.push(`0-${toMin - 1}/${frequencyInMinutes} ${toHour} * * ${dayNum}`);
 			}
-			// If toMin=0 means no partial last hour (stop at start of hour)
 		}
 	}
 

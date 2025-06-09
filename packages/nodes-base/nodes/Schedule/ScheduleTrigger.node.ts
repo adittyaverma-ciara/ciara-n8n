@@ -6,10 +6,10 @@ import type {
 	INodeTypeDescription,
 	ITriggerResponse,
 } from 'n8n-workflow';
-import { NodeConnectionType, NodeOperationError } from 'n8n-workflow';
-
+import { NodeApiError, NodeConnectionType, NodeOperationError } from 'n8n-workflow';
 import { intervalToRecurrence, recurrenceCheck, toCronExpression } from './GenericFunctions';
 import type { IRecurrenceRule, Rule } from './SchedulerInterface';
+import { getDbConnection } from '@utils/db';
 
 export class ScheduleTrigger implements INodeType {
 	description: INodeTypeDescription = {
@@ -41,17 +41,12 @@ export class ScheduleTrigger implements INodeType {
 				displayName: 'Trigger Rules',
 				name: 'rule',
 				placeholder: 'Add Rule',
-				type: 'fixedCollection',
+				type: 'hidden',
 				typeOptions: {
 					multipleValues: true,
+					editorIsReadOnly: true,
 				},
-				default: {
-					interval: [
-						{
-							field: 'days',
-						},
-					],
-				},
+				default: {},
 				options: [
 					{
 						name: 'interval',
@@ -411,7 +406,24 @@ export class ScheduleTrigger implements INodeType {
 	};
 
 	async trigger(this: ITriggerFunctions): Promise<ITriggerResponse> {
-		const { interval: intervals } = this.getNodeParameter('rule', []) as Rule;
+		// const { interval: intervals } = this.getNodeParameter('rule', []) as Rule;
+		const workflowId = this.getWorkflow().id as string;
+		const { cronExpressions: cronList, timezoneInfo } = await getCronExpressions(
+			workflowId as string,
+		);
+		const intervals: any[] = cronList.map((expr) => ({
+			field: 'cronExpression',
+			expression: expr,
+		}));
+
+		if (!intervals?.length || !intervals.some((rule) => rule.field)) {
+			throw new NodeApiError(this.getNode(), {
+				message: '❌ No working hours set from CiaraAI. Please configure them first.',
+				//⚠️ No cron rules found. Sync your working hours from CiaraAI.
+			});
+		}
+		await updateWorkflowTimezone(workflowId, timezoneInfo.iana_timezone);
+
 		const timezone = this.getTimezone();
 		const staticData = this.getWorkflowStaticData('node') as {
 			recurrenceRules: number[];
@@ -420,7 +432,7 @@ export class ScheduleTrigger implements INodeType {
 			staticData.recurrenceRules = [];
 		}
 
-		const executeTrigger = (recurrence: IRecurrenceRule) => {
+		const executeTrigger = async (recurrence: IRecurrenceRule) => {
 			const shouldTrigger = recurrenceCheck(recurrence, staticData.recurrenceRules, timezone);
 			if (!shouldTrigger) return;
 
@@ -438,6 +450,9 @@ export class ScheduleTrigger implements INodeType {
 				Second: momentTz.format('ss'),
 				Timezone: `${timezone} (UTC${momentTz.format('Z')})`,
 			};
+
+			const aboveStartDate = await checkStartValidation(workflowId, timezone);
+			if (!aboveStartDate) return;
 
 			this.emit([this.helpers.returnJsonArray([resultData])]);
 		};
@@ -477,8 +492,161 @@ export class ScheduleTrigger implements INodeType {
 				}
 				executeTrigger(recurrence);
 			};
-
-			return { manualTriggerFunction };
+			return {
+				manualTriggerFunction,
+			};
 		}
 	}
+}
+
+const updateWorkflowTimezone = async (playbook_id: string, newTimezone: string) => {
+	const connection = await getDbConnection();
+	try {
+		if (newTimezone) {
+			await connection.execute(
+				`
+			UPDATE n8n_workflow_entity
+			SET settings = JSON_SET(settings, '$.timezone', ?)
+			WHERE id = ?
+			`,
+				[newTimezone, playbook_id],
+			);
+
+			console.log(`Timezone updated to ${newTimezone} for workflow ${playbook_id}`);
+		}
+	} catch (error) {
+		connection.release();
+	} finally {
+		connection.release();
+	}
+};
+
+async function getCronExpressions(workflowId: string) {
+	const connection = await getDbConnection();
+	let cronExpressions: string[] = [];
+	let timezoneInfo;
+	try {
+		const scheduleData = await getSchedulingDetailsFromDB(workflowId, connection);
+		cronExpressions = createCronIntervals(scheduleData?.scheduling_hours, 1);
+		timezoneInfo = await getTimezone(connection, scheduleData?.timezone);
+		return { cronExpressions, timezoneInfo };
+	} catch (error) {
+		connection.release();
+		return { cronExpressions, timezoneInfo };
+	} finally {
+		connection.release();
+	}
+}
+
+async function getSchedulingDetailsFromDB(playbook_id: string, connection?: any) {
+	let isNewConnection: boolean = false;
+	try {
+		if (!connection) {
+			connection = await getDbConnection();
+			isNewConnection = true;
+		}
+		const [results] = await connection.execute(
+			`SELECT *
+				FROM s_a_scheduling_details
+	 			WHERE playbook_id = ?`,
+			[playbook_id],
+		);
+		let scheduleData = results.length ? results[0] : null;
+		if (!scheduleData) return null;
+		return scheduleData;
+	} catch (error) {
+		if (isNewConnection) connection.release();
+		return null;
+	} finally {
+		if (isNewConnection) connection.release();
+	}
+}
+
+async function getTimezone(connection: any, timezone_id: string) {
+	if (!timezone_id) return null;
+	const [results] = await connection.execute(
+		`SELECT *
+			FROM timezones
+ 			WHERE id = ?`,
+		[timezone_id],
+	);
+	const timezoneData = results.length ? results[0] : null;
+
+	return timezoneData;
+}
+
+async function checkStartValidation(workflowId: string, timezone: string) {
+	const scheduleData = await getSchedulingDetailsFromDB(workflowId);
+	if (!scheduleData) return false;
+	const startDate = scheduleData.start_date;
+	if (!startDate) return true;
+	const givenDate = moment.tz(startDate, timezone).startOf('day');
+	const currentDate = moment.tz(timezone);
+	if (currentDate.isAfter(givenDate)) return true;
+	else return false;
+}
+
+type Slot = { from: string; to: string };
+type DaySchedule = { slots?: Slot[]; isActive: boolean };
+type Schedule = Record<string, DaySchedule>;
+
+const dayMap: Record<string, number> = {
+	sunday: 0,
+	monday: 1,
+	tuesday: 2,
+	wednesday: 3,
+	thursday: 4,
+	friday: 5,
+	saturday: 6,
+};
+function createCronIntervals(schedule: Schedule, frequencyInMinutes = 1): string[] {
+	const cronExpressions: string[] = [];
+
+	for (const [day, data] of Object.entries(schedule)) {
+		if (!data.isActive) continue;
+
+		const dayNum = dayMap[day.toLowerCase()];
+		if (dayNum === undefined) continue;
+		if (!data.slots || data.slots.length === 0) continue;
+
+		for (const slot of data.slots) {
+			// Parse 'from' and 'to'
+			const [fromHour, fromMin] = slot.from.split(':').map(Number);
+			const [toHour, toMin] = slot.to.split(':').map(Number);
+
+			if (fromHour > toHour || (fromHour === toHour && fromMin >= toMin)) {
+				// invalid slot, skip
+				continue;
+			}
+
+			// Case 1: slot within the same hour or multiple hours
+			// We must split cron if minutes range is partial for first or last hour
+
+			// For simplicity:
+			// Generate cron for full hours between fromHour+1 to toHour-1 if any
+			// Handle fromHour partial minutes (from fromMin to 59)
+			// Handle toHour partial minutes (from 0 to toMin-1)
+
+			// 1. Partial first hour (from fromMin to 59)
+			if (fromMin > 0) {
+				cronExpressions.push(`${fromMin}-59/${frequencyInMinutes} ${fromHour} * * ${dayNum}`);
+			} else {
+				// fromMin=0 means whole hour
+				cronExpressions.push(`*/${frequencyInMinutes} ${fromHour} * * ${dayNum}`);
+			}
+
+			// 2. Full hours between fromHour+1 and toHour-1
+			for (let h = fromHour + 1; h < toHour; h++) {
+				cronExpressions.push(`*/${frequencyInMinutes} ${h} * * ${dayNum}`);
+			}
+
+			// 3. Partial last hour (0 to toMin-1)
+			if (toMin > 0) {
+				cronExpressions.push(`0-${toMin - 1}/${frequencyInMinutes} ${toHour} * * ${dayNum}`);
+			}
+			// If toMin=0 means no partial last hour (stop at start of hour)
+		}
+	}
+
+	return cronExpressions;
 }

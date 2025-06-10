@@ -95,10 +95,13 @@ export class CallAgent implements INodeType {
 		const objectInfo = Object.assign(this);
 		const timezone = objectInfo?.workflow?.settings?.timezone || 'UTC';
 		let sdrAgent, sdrAgentId;
-
+		const playbookId = this.getWorkflow().id as string;
 		try {
 			const sdrAgentId = this.getNodeParameter('sdrAgentId', 0) as number;
-			await sendEngineWebhook({ agentId: sdrAgentId, isRunning: true }, engineWebhookUrl);
+			await sendEngineWebhook(
+				{ agentId: sdrAgentId, isRunning: true, playbookId },
+				engineWebhookUrl,
+			);
 
 			if (sdrAgentId) {
 				sdrAgent = await fetchSDRAgent(connection, sdrAgentId);
@@ -125,7 +128,10 @@ export class CallAgent implements INodeType {
 		} finally {
 			connection.release();
 			if (sdrAgentId) {
-				await sendEngineWebhook({ agentId: sdrAgentId, isRunning: false }, engineWebhookUrl);
+				await sendEngineWebhook(
+					{ agentId: sdrAgentId, isRunning: false, playbookId },
+					engineWebhookUrl,
+				);
 			}
 		}
 	}
@@ -274,7 +280,7 @@ export async function createPhoneCall(
 }
 
 export async function sendEngineWebhook(
-	payload: { agentId: number; isRunning: boolean },
+	payload: { agentId: number; isRunning: boolean; playbookId: string },
 	engineWebhookUrl: string,
 ) {
 	try {

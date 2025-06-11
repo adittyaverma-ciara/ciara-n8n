@@ -96,7 +96,8 @@ export class CallAgent implements INodeType {
 		const objectInfo = Object.assign(this);
 		const timezone = objectInfo?.workflow?.settings?.timezone || 'UTC';
 		let sdrAgent, sdrAgentId, segmentId;
-		const playbookId = this.getWorkflow().id as string;
+		const workflow = this.getWorkflow();
+		const playbookId = workflow.id as string;
 		try {
 			sdrAgentId = this.getNodeParameter('sdrAgentId', 0) as number;
 			await sendEngineWebhook(

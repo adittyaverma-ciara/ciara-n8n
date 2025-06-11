@@ -19,6 +19,7 @@ import {
 	agentVoiceProvider,
 	LeadStatusTypesE,
 	NormalObjT,
+	RetellCallTypesE,
 } from './helper';
 import Retell from 'retell-sdk';
 import { GlobalConfig } from '@n8n/config';
@@ -217,6 +218,7 @@ export async function processCalls(
 						contact.priority,
 						contact.product_of_interest,
 						LeadStatusTypesE.CALLING,
+						RetellCallTypesE.PHONE_CALL,
 						workflowId,
 					]);
 
@@ -242,8 +244,8 @@ export async function storeCallDetails(connection: any, record: any[]) {
 	const [result]: any = await connection.execute(
 		`INSERT INTO sdr_agents_call_details (
 			sdr_agent_id, call_current_status, retell_call_id, company_id, 
-			lead_id, segment_id, lead_priority, lead_product_of_interest, lead_status, playbook_id
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			lead_id, segment_id, lead_priority, lead_product_of_interest, lead_status, call_type, playbook_id
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		record,
 	);
 	return result.insertId;

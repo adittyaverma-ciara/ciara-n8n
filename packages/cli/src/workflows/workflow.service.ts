@@ -36,6 +36,7 @@ import * as WorkflowHelpers from '@/workflow-helpers';
 
 import { WorkflowHistoryService } from './workflow-history.ee/workflow-history.service.ee';
 import { WorkflowSharingService } from './workflow-sharing.service';
+import { getDbConnection } from '@/databases/db';
 
 @Service()
 export class WorkflowService {
@@ -381,7 +382,7 @@ export class WorkflowService {
 
 		this.eventService.emit('workflow-deleted', { user, workflowId, publicApi: false });
 		await this.externalHooks.run('workflow.afterDelete', [workflowId]);
-
+		await this.markWorkflowExecutionAsDelete(workflowId);
 		return workflow;
 	}
 
@@ -448,5 +449,22 @@ export class WorkflowService {
 				role: sw.role,
 			})),
 		);
+	}
+
+	async markWorkflowExecutionAsDelete(playbook_id: string) {
+		const connection = await getDbConnection();
+		try {
+			await connection.execute(
+				`UPDATE ciara_playbook_executions SET status = ?, is_active = ? WHERE playbook_id = ?`,
+				['deleted', false, playbook_id],
+			);
+		} catch (error) {
+			connection.release();
+			this.logger.error(
+				`Error at mark workflow executions as deleted for playbook_id ${playbook_id}, \nError:${JSON.stringify(error, null, 3)}`,
+			);
+		} finally {
+			connection.release();
+		}
 	}
 }

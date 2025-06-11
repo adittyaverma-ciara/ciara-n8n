@@ -19,6 +19,7 @@ import {
 	agentVoiceProvider,
 	LeadStatusTypesE,
 	NormalObjT,
+	RetellCallTypesE,
 } from './helper';
 import Retell from 'retell-sdk';
 import { GlobalConfig } from '@n8n/config';
@@ -94,10 +95,10 @@ export class CallAgent implements INodeType {
 		const connection = await getDbConnection();
 		const objectInfo = Object.assign(this);
 		const timezone = objectInfo?.workflow?.settings?.timezone || 'UTC';
-		let sdrAgent, sdrAgentId;
+		let sdrAgent, sdrAgentId, segmentId;
 		const playbookId = this.getWorkflow().id as string;
 		try {
-			const sdrAgentId = this.getNodeParameter('sdrAgentId', 0) as number;
+			sdrAgentId = this.getNodeParameter('sdrAgentId', 0) as number;
 			await sendEngineWebhook(
 				{ agentId: sdrAgentId, isRunning: true, playbookId },
 				engineWebhookUrl,
@@ -109,8 +110,9 @@ export class CallAgent implements INodeType {
 			const inputData = this.getInputData();
 			const contacts = inputData?.map((input) => input.json) || [];
 
+			segmentId = contacts.length > 0 ? contacts[0].segmentId : null;
 			// Process calls
-			const callResults = await processCalls(connection, contacts, sdrAgent, timezone);
+			const callResults = await processCalls(connection, contacts, sdrAgent, timezone, workflow.id);
 
 			// return [this.helpers.returnJsonArray(callResults)];
 			return callResults?.length > 0
@@ -126,13 +128,20 @@ export class CallAgent implements INodeType {
 			connection.release();
 			throw new NodeOperationError(this.getNode(), error.message || 'Unknown error');
 		} finally {
-			connection.release();
 			if (sdrAgentId) {
 				await sendEngineWebhook(
 					{ agentId: sdrAgentId, isRunning: false, playbookId },
 					engineWebhookUrl,
 				);
+				await storeExecutionDetails(connection, [
+					workflow.id,
+					workflow.name,
+					sdrAgentId,
+					segmentId,
+					workflow.active,
+				]);
 			}
+			connection.release();
 		}
 	}
 }
@@ -154,6 +163,7 @@ export async function processCalls(
 	contacts: any,
 	sdrAgent: any,
 	timezone: string,
+	workflowId?: string,
 ) {
 	const callPromises = contacts.map(async (contact: any) => {
 		try {
@@ -214,6 +224,8 @@ export async function processCalls(
 						contact.priority,
 						contact.product_of_interest,
 						LeadStatusTypesE.CALLING,
+						RetellCallTypesE.PHONE_CALL,
+						workflowId,
 					]);
 
 					await updateCallStatus(connection, contact.id, 'calling');
@@ -238,8 +250,8 @@ export async function storeCallDetails(connection: any, record: any[]) {
 	const [result]: any = await connection.execute(
 		`INSERT INTO sdr_agents_call_details (
 			sdr_agent_id, call_current_status, retell_call_id, company_id, 
-			lead_id, segment_id, lead_priority, lead_product_of_interest, lead_status
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			lead_id, segment_id, lead_priority, lead_product_of_interest, lead_status, call_type, playbook_id
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		record,
 	);
 	return result.insertId;
@@ -250,6 +262,16 @@ export async function updateCallStatus(connection: any, contactId: number, statu
 		status,
 		contactId,
 	]);
+}
+
+export async function storeExecutionDetails(connection: any, record: any[]) {
+	const [result]: any = await connection.execute(
+		`INSERT INTO ciara_playbook_executions (
+			playbook_id, playbook_name, agent_id, segment_id, is_active
+		) VALUES (?, ?, ?, ?, ?)`,
+		record,
+	);
+	return result.insertId;
 }
 
 // 🔹 Retell API Helper Functions

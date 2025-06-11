@@ -96,10 +96,13 @@ export class CallAgent implements INodeType {
 		const objectInfo = Object.assign(this);
 		const timezone = objectInfo?.workflow?.settings?.timezone || 'UTC';
 		let sdrAgent, sdrAgentId, segmentId;
-		const workflow = this.getWorkflow();
+		const playbookId = this.getWorkflow().id as string;
 		try {
 			sdrAgentId = this.getNodeParameter('sdrAgentId', 0) as number;
-			await sendEngineWebhook({ agentId: sdrAgentId, isRunning: true }, engineWebhookUrl);
+			await sendEngineWebhook(
+				{ agentId: sdrAgentId, isRunning: true, playbookId },
+				engineWebhookUrl,
+			);
 
 			if (sdrAgentId) {
 				sdrAgent = await fetchSDRAgent(connection, sdrAgentId);
@@ -126,7 +129,10 @@ export class CallAgent implements INodeType {
 			throw new NodeOperationError(this.getNode(), error.message || 'Unknown error');
 		} finally {
 			if (sdrAgentId) {
-				await sendEngineWebhook({ agentId: sdrAgentId, isRunning: false }, engineWebhookUrl);
+				await sendEngineWebhook(
+					{ agentId: sdrAgentId, isRunning: false, playbookId },
+					engineWebhookUrl,
+				);
 				await storeExecutionDetails(connection, [
 					workflow.id,
 					workflow.name,
@@ -296,7 +302,7 @@ export async function createPhoneCall(
 }
 
 export async function sendEngineWebhook(
-	payload: { agentId: number; isRunning: boolean },
+	payload: { agentId: number; isRunning: boolean; playbookId: string },
 	engineWebhookUrl: string,
 ) {
 	try {

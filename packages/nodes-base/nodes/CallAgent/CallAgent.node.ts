@@ -107,7 +107,10 @@ export class CallAgent implements INodeType {
 
 			if (sdrAgentId) {
 				sdrAgent = await fetchSDRAgent(connection, sdrAgentId);
-			} else throw new NodeOperationError(this.getNode(), 'No active Call agent found.');
+			}
+
+			if (!sdrAgent) throw new NodeOperationError(this.getNode(), 'No active Call agent found.');
+
 			const inputData = this.getInputData();
 			const contacts = inputData?.map((input) => input.json) || [];
 
@@ -152,7 +155,7 @@ async function fetchSDRAgent(connection: any, sdrAgentId: number) {
 	const [results] = await connection.execute(
 		`SELECT sa.*, sa.id as agent_id
 			FROM sdr_agents AS sa
- 			WHERE sa.id = ?`, // AND sa.status = 'ACTIVE' // need to check
+ 			WHERE sa.id = ? AND sa.status = 'active'`,
 		[sdrAgentId],
 	);
 	return results.length ? results[0] : null;
@@ -177,13 +180,13 @@ export async function processCalls(
 				const dynamicVariableObj = createDynamicObject(contact?.custom_fields);
 				const callDynamicVariable: any = {};
 				callDynamicVariable['recipientName'] = contact.name?.split(' ')?.[0] || '';
-				callDynamicVariable['productName'] = contact.product_of_interest;
 				callDynamicVariable['currentTime'] = adjustTimeByOffset(new Date(), timezone);
 
 				const leadDetails = {
 					...dynamicVariableObj,
 					...contact,
 				};
+
 				Object.keys(dynamicVariable)?.reduce((acc, curr) => {
 					acc[curr] = leadDetails[dynamicVariable[curr]] || '';
 					return acc;
@@ -192,6 +195,10 @@ export async function processCalls(
 				callDynamicVariable['companyName'] = isVariableValue(sdrAgent.company_name)
 					? leadDetails[extractVariableName(sdrAgent.company_name) || ''] || ''
 					: sdrAgent.company_name;
+
+				callDynamicVariable['productName'] = isVariableValue(sdrAgent.product_name)
+					? leadDetails[extractVariableName(sdrAgent.product_name) || ''] || ''
+					: sdrAgent.product_name;
 
 				Object.assign(callDynamicVariable, constantVariables);
 
@@ -223,7 +230,7 @@ export async function processCalls(
 						contact.id,
 						contact.segmentId,
 						contact.priority,
-						contact.product_of_interest,
+						callDynamicVariable['productName'],
 						LeadStatusTypesE.CALLING,
 						RetellCallTypesE.PHONE_CALL,
 						workflowId,

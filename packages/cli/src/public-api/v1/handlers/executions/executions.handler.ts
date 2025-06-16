@@ -146,4 +146,32 @@ export = {
 			});
 		},
 	],
+	stopExecution: [
+		async (req: ExecutionRequest.Get, res: express.Response): Promise<express.Response> => {
+			const sharedWorkflowsIds = await getSharedWorkflowIds(req.user, ['workflow:read']);
+
+			if (!sharedWorkflowsIds.length) {
+				return res.status(404).json({ message: 'Not Found' });
+			}
+
+			const { id } = req.params;
+
+			const execution = await Container.get(
+				ExecutionRepository,
+			).getExecutionInWorkflowsForPublicApi(id, sharedWorkflowsIds, false);
+
+			if (!execution) {
+				return res.status(404).json({ message: 'Execution not found' });
+			}
+
+			if (execution.status !== 'running') {
+				return res.status(400).json({ message: 'Execution is not running' });
+			}
+
+			const activeExecutions = Container.get(ActiveExecutions);
+			activeExecutions.stopExecution(execution.id);
+
+			return res.status(200).json({ message: 'Execution stopped successfully' });
+		},
+	],
 };

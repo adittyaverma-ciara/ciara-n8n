@@ -92,20 +92,23 @@ export async function zohoApiRequestAllItems(
 	endpoint: string,
 	body: IDataObject = {},
 	qs: IDataObject = {},
+	limit?: number,
 ) {
 	const returnData: IDataObject[] = [];
 
 	let responseData;
-	qs.per_page = 200;
+	qs.per_page = limit || 200;
 	qs.page = 1;
-
 	do {
 		responseData = await zohoApiRequest.call(this, method, endpoint, body, qs);
 		if (Array.isArray(responseData) && !responseData.length) return returnData;
 		returnData.push(...(responseData.data as IDataObject[]));
 		qs.page++;
-	} while (responseData.info.more_records !== undefined && responseData.info.more_records === true);
-
+	} while (
+		responseData.info.more_records !== undefined &&
+		responseData.info.more_records === true &&
+		returnData.length < qs.per_page
+	);
 	return returnData;
 }
 
@@ -120,15 +123,13 @@ export async function handleListing(
 	qs: IDataObject = {},
 ) {
 	const returnAll = this.getNodeParameter('returnAll', 0);
+	const limit = this.getNodeParameter('limit', 0, 200);
 
 	if (returnAll) {
 		return await zohoApiRequestAllItems.call(this, method, endpoint, body, qs);
 	}
 
-	const responseData = await zohoApiRequestAllItems.call(this, method, endpoint, body, qs);
-	const limit = this.getNodeParameter('limit', 0);
-
-	return responseData.slice(0, limit);
+	return await zohoApiRequestAllItems.call(this, method, endpoint, body, qs, limit);
 }
 
 export function throwOnEmptyUpdate(this: IExecuteFunctions, resource: CamelCaseResource) {

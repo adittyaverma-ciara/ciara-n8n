@@ -104,8 +104,11 @@ export async function zohoApiRequestAllItems(
 		if (Array.isArray(responseData) && !responseData.length) return returnData;
 		returnData.push(...(responseData.data as IDataObject[]));
 		qs.page++;
-	} while (responseData.info.more_records !== undefined && responseData.info.more_records === true);
-
+	} while (
+		responseData.info.more_records !== undefined &&
+		responseData.info.more_records === true &&
+		(limit !== undefined ? returnData.length < limit : true)
+	);
 	return returnData;
 }
 

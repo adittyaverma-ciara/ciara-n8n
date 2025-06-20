@@ -107,7 +107,7 @@ export async function zohoApiRequestAllItems(
 	} while (
 		responseData.info.more_records !== undefined &&
 		responseData.info.more_records === true &&
-		returnData.length < qs.per_page
+		(limit !== undefined ? returnData.length < limit : true)
 	);
 	return returnData;
 }

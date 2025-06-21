@@ -438,4 +438,61 @@ export = {
 			return res.json(tags);
 		},
 	],
+	duplicateWorkflow: [
+		async (req: WorkflowRequest.Duplicate, res: express.Response): Promise<express.Response> => {
+			const { id } = req.params;
+			const { name } = req.body;
+
+			let workflow = await Container.get(SharedWorkflowRepository).findWorkflowForUser(
+				id,
+				req.user,
+				['workflow:read'],
+				{ includeTags: !Container.get(GlobalConfig).tags.disabled },
+			);
+
+			if (!workflow) {
+				// user trying to access a workflow they do not own
+				// and was not shared to them
+				// Or does not exist.
+				return res.status(404).json({ message: 'Not Found' });
+			}
+			const workflowPayload = Object.assign(workflow);
+			workflowPayload.name = name;
+			workflowPayload.active = false;
+			workflowPayload.versionId = uuid();
+			delete workflowPayload.id;
+			delete workflowPayload.shared;
+
+			await replaceInvalidCredentials(workflowPayload);
+
+			addNodeIds(workflowPayload);
+
+			const project = await Container.get(ProjectRepository).getPersonalProjectForUserOrFail(
+				req.user.id,
+			);
+			const createdWorkflow = await createWorkflow(
+				workflowPayload,
+				req.user,
+				project,
+				'workflow:owner',
+			);
+
+			await Container.get(WorkflowHistoryService).saveVersion(
+				req.user,
+				createdWorkflow,
+				createdWorkflow.id,
+			);
+
+			await Container.get(ExternalHooks).run('workflow.afterCreate', [createdWorkflow]);
+			Container.get(EventService).emit('workflow-created', {
+				workflow: createdWorkflow,
+				user: req.user,
+				publicApi: true,
+				projectId: project.id,
+				projectType: project.type,
+			});
+
+			return res.json(createdWorkflow);
+		},
+	],
 };

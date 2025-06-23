@@ -49,7 +49,6 @@ export = {
 			if (!n8nAuth) return res.json('ok');
 
 			const { exp } = Container.get(JwtService).decode(n8nAuth);
-			InvalidAuthTokenRepository;
 			if (exp) {
 				await Container.get(InvalidAuthTokenRepository).insert({
 					token: n8nAuth,

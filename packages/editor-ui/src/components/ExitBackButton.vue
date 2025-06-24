@@ -5,10 +5,18 @@ import { useI18n } from '@/composables/useI18n';
 const router = useRouter();
 const i18n = useI18n();
 
-const navigateTo = () => {
-	// void router.push({ name: VIEWS.TEMPLATES });
-	// console.log('process.env => ', process.env);
-	// window.location.href(`${process.env.VUE_APP_PLATFORM_URL}/workflows`);
+const navigateTo = async () => {
+	try {
+		// Call backend logout API to invalidate session/cookie
+		await fetch('/rest/logout', {
+			method: 'POST',
+			credentials: 'include',
+		});
+	} catch (error) {
+		console.error('Logout failed:', error);
+	}
+
+	// Redirect after logout
 	window.location.replace('https://stage.ciaraai.com/workflows');
 };
 </script>

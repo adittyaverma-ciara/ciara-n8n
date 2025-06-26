@@ -1,0 +1,27 @@
+post:
+  x-eov-operation-id: duplicateWorkflow
+  x-eov-operation-handler: v1/handlers/workflows/workflows.handler
+  tags:
+    - Workflow
+  summary: Duplicate a workflow
+  description: Duplicate a workflow in your instance.
+  parameters:
+    - $ref: '../schemas/parameters/workflowId.yml'
+  requestBody:
+    description: Duplicated workflow object.
+    content:
+      application/json:
+        schema:
+          $ref: '../schemas/workflowDuplicate.yml'
+    required: true
+  responses:
+    '200':
+      description: A workflow object
+      content:
+        application/json:
+          schema:
+            $ref: '../schemas/workflow.yml'
+    '400':
+      $ref: '../../../../shared/spec/responses/badRequest.yml'
+    '401':
+      $ref: '../../../../shared/spec/responses/unauthorized.yml'

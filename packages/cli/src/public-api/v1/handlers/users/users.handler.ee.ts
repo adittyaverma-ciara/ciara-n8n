@@ -17,12 +17,47 @@ import {
 	validLicenseWithUserQuota,
 } from '../../shared/middlewares/global.middleware';
 import { encodeNextCursor } from '../../shared/services/pagination.service';
+import { AuthService } from '@/auth/auth.service';
+import { JwtService } from '@/services/jwt.service';
+import { InvalidAuthTokenRepository } from '@/databases/repositories/invalid-auth-token.repository';
 
 type Create = AuthenticatedRequest<{}, {}, InviteUsersRequestDto>;
 type Delete = UserRequest.Delete;
 type ChangeRole = AuthenticatedRequest<{ id: string }, {}, RoleChangeRequestDto, {}>;
 
 export = {
+	getUserAuth: [
+		async (req: UserRequest.GetUserAuth, res: express.Response) => {
+			const { id } = req.params;
+
+			const user = await getUser({ withIdentifier: id });
+
+			if (!user) {
+				return res.status(404).json({
+					message: `Could not find user with id: ${id}`,
+				});
+			}
+
+			const token = Container.get(AuthService).issueJWT(user);
+
+			return res.json({ user, token });
+		},
+	],
+	revokeUserAuth: [
+		async (req: UserRequest.RevokeUserAuth, res: express.Response) => {
+			const n8nAuth = req.headers['n8n-auth'] as string;
+			if (!n8nAuth) return res.json('ok');
+
+			const { exp } = Container.get(JwtService).decode(n8nAuth);
+			if (exp) {
+				await Container.get(InvalidAuthTokenRepository).insert({
+					token: n8nAuth,
+					expiresAt: new Date(exp * 1000),
+				});
+			}
+			return res.json('ok');
+		},
+	],
 	getUser: [
 		validLicenseWithUserQuota,
 		globalScope('user:read'),

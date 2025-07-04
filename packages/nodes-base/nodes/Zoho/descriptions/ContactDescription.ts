@@ -27,6 +27,12 @@ export const contactOperations: INodeProperties[] = [
 				action: 'Create a contact',
 			},
 			{
+				name: 'Search',
+				value: 'search',
+				description: 'Search for contacts',
+				action: 'Search contacts',
+			},
+			{
 				name: 'Create or Update',
 				value: 'upsert',
 				description: 'Create a new record, or update the current one if it already exists (upsert)',
@@ -63,6 +69,73 @@ export const contactOperations: INodeProperties[] = [
 
 export const contactFields: INodeProperties[] = [
 	// ----------------------------------------
+	//           contact: search
+	// ----------------------------------------
+	{
+		displayName: 'Search Filters',
+		name: 'searchFilters',
+		type: 'fixedCollection',
+		placeholder: 'Add Filter',
+		default: {},
+		typeOptions: {
+			multipleValues: true,
+		},
+		displayOptions: {
+			show: {
+				resource: ['contact'],
+				operation: ['search'],
+			},
+		},
+		options: [
+			{
+				displayName: 'Filter',
+				name: 'filters',
+				values: [
+					{
+						displayName: 'Field',
+						name: 'field',
+						type: 'options',
+						typeOptions: {
+							loadOptionsMethod: 'getFields',
+							loadOptionsDependsOn: ['resource'],
+						},
+						default: '',
+						description: 'Field to filter by',
+					},
+					{
+						displayName: 'Operator',
+						name: 'operator',
+						type: 'options',
+						options: [
+							{ name: 'Equals', value: 'equals' },
+							{ name: 'Not Equals', value: 'not_equal' },
+							{ name: 'Contains', value: 'in' },
+							{ name: 'Starts With', value: 'starts_with' },
+							{ name: 'Greater Than', value: 'greater_than' },
+							{ name: 'Less Than', value: 'less_than' },
+							{ name: 'Greater or Equal', value: 'greater_equal' },
+							{ name: 'Less or Equal', value: 'less_equal' },
+							{ name: 'Between', value: 'between' },
+						],
+						default: 'equals',
+					},
+					{
+						displayName: 'Value',
+						name: 'value',
+						type: 'string',
+						default: '',
+						description: 'Value to compare',
+						displayOptions: {
+							hide: {
+								operator: ['is_empty', 'is_not_empty'],
+							},
+						},
+					},
+				],
+			},
+		],
+	},
+	// ----------------------------------------
 	//             contact: create
 	// ----------------------------------------
 	{
@@ -81,9 +154,12 @@ export const contactFields: INodeProperties[] = [
 	{
 		displayName: 'Additional Fields',
 		name: 'additionalFields',
-		type: 'collection',
+		type: 'fixedCollection',
 		placeholder: 'Add Field',
 		default: {},
+		typeOptions: {
+			multipleValues: true,
+		},
 		displayOptions: {
 			show: {
 				resource: ['contact'],
@@ -92,119 +168,28 @@ export const contactFields: INodeProperties[] = [
 		},
 		options: [
 			{
-				displayName: 'Assistant',
-				name: 'Assistant',
-				type: 'string',
-				default: '',
-				description: 'Name of the contact’s assistant',
-			},
-			makeCustomFieldsFixedCollection('contact'),
-			{
-				displayName: 'Date of Birth',
-				name: 'Date_of_Birth',
-				type: 'dateTime',
-				default: '',
-			},
-			{
-				displayName: 'Department',
-				name: 'Department',
-				type: 'string',
-				default: '',
-				description: 'Company department to which the contact belongs',
-			},
-			{
-				displayName: 'Description',
-				name: 'Description',
-				type: 'string',
-				default: '',
-			},
-			{
-				displayName: 'Email (Primary)',
-				name: 'Email',
-				type: 'string',
-				default: '',
-			},
-			{
-				displayName: 'Email (Secondary)',
-				name: 'Secondary_Email',
-				type: 'string',
-				default: '',
-			},
-			{
-				displayName: 'Fax',
-				name: 'Fax',
-				type: 'string',
-				default: '',
-			},
-			{
-				displayName: 'First Name',
-				name: 'First_Name',
-				type: 'string',
-				default: '',
-			},
-			{
-				displayName: 'Full Name',
-				name: 'Full_Name',
-				type: 'string',
-				default: '',
-			},
-			mailingAddress,
-			{
-				displayName: 'Mobile',
-				name: 'Mobile',
-				type: 'string',
-				default: '',
-			},
-			otherAddress,
-			{
-				displayName: 'Phone',
-				name: 'Phone',
-				type: 'string',
-				default: '',
-			},
-			{
-				displayName: 'Phone (Assistant)',
-				name: 'Asst_Phone',
-				type: 'string',
-				default: '',
-				description: 'Phone number of the contact’s assistant',
-			},
-			{
-				displayName: 'Phone (Home)',
-				name: 'Home_Phone',
-				type: 'string',
-				default: '',
-			},
-			{
-				displayName: 'Phone (Other)',
-				name: 'Other_Phone',
-				type: 'string',
-				default: '',
-			},
-			{
-				displayName: 'Salutation',
-				name: 'Salutation',
-				type: 'string',
-				default: '',
-			},
-			{
-				displayName: 'Skype ID',
-				name: 'Skype_ID',
-				type: 'string',
-				default: '',
-			},
-			{
-				displayName: 'Title',
-				name: 'Title',
-				type: 'string',
-				default: '',
-				description: 'Position of the contact at their company',
-			},
-			{
-				displayName: 'Twitter',
-				name: 'Twitter',
-				type: 'string',
-				default: '',
+				displayName: 'Field',
+				name: 'fields',
+				values: [
+					{
+						displayName: 'Field',
+						name: 'field',
+						type: 'options',
+						typeOptions: {
+							loadOptionsMethod: 'getFields',
+							loadOptionsDependsOn: ['resource'],
+						},
+						default: '',
+						description: 'Field to set',
+					},
+					{
+						displayName: 'Value',
+						name: 'value',
+						type: 'string',
+						default: '',
+						description: 'Value to set',
+					},
+				],
 			},
 		],
 	},
@@ -228,9 +213,12 @@ export const contactFields: INodeProperties[] = [
 	{
 		displayName: 'Additional Fields',
 		name: 'additionalFields',
-		type: 'collection',
+		type: 'fixedCollection',
 		placeholder: 'Add Field',
 		default: {},
+		typeOptions: {
+			multipleValues: true,
+		},
 		displayOptions: {
 			show: {
 				resource: ['contact'],
@@ -239,121 +227,28 @@ export const contactFields: INodeProperties[] = [
 		},
 		options: [
 			{
-				displayName: 'Assistant',
-				name: 'Assistant',
-				type: 'string',
-				default: '',
-				description: 'Name of the contact’s assistant',
-			},
-			makeCustomFieldsFixedCollection('contact'),
-			{
-				displayName: 'Date of Birth',
-				name: 'Date_of_Birth',
-				type: 'dateTime',
-				default: '',
-			},
-			{
-				displayName: 'Department',
-				name: 'Department',
-				type: 'string',
-				default: '',
-				description: 'Company department to which the contact belongs',
-			},
-			{
-				displayName: 'Description',
-				name: 'Description',
-				type: 'string',
-				default: '',
-			},
-			{
-				displayName: 'Email (Primary)',
-				name: 'Email',
-				type: 'string',
-				default: '',
-				description:
-					'Email of the contact. If a record with this email exists it will be updated, otherwise a new one will be created.',
-			},
-			{
-				displayName: 'Email (Secondary)',
-				name: 'Secondary_Email',
-				type: 'string',
-				default: '',
-			},
-			{
-				displayName: 'Fax',
-				name: 'Fax',
-				type: 'string',
-				default: '',
-			},
-			{
-				displayName: 'First Name',
-				name: 'First_Name',
-				type: 'string',
-				default: '',
-			},
-			{
-				displayName: 'Full Name',
-				name: 'Full_Name',
-				type: 'string',
-				default: '',
-			},
-			mailingAddress,
-			{
-				displayName: 'Mobile',
-				name: 'Mobile',
-				type: 'string',
-				default: '',
-			},
-			otherAddress,
-			{
-				displayName: 'Phone',
-				name: 'Phone',
-				type: 'string',
-				default: '',
-			},
-			{
-				displayName: 'Phone (Assistant)',
-				name: 'Asst_Phone',
-				type: 'string',
-				default: '',
-				description: 'Phone number of the contact’s assistant',
-			},
-			{
-				displayName: 'Phone (Home)',
-				name: 'Home_Phone',
-				type: 'string',
-				default: '',
-			},
-			{
-				displayName: 'Phone (Other)',
-				name: 'Other_Phone',
-				type: 'string',
-				default: '',
-			},
-			{
-				displayName: 'Salutation',
-				name: 'Salutation',
-				type: 'string',
-				default: '',
-			},
-			{
-				displayName: 'Skype ID',
-				name: 'Skype_ID',
-				type: 'string',
-				default: '',
-			},
-			{
-				displayName: 'Title',
-				name: 'Title',
-				type: 'string',
-				default: '',
-				description: 'Position of the contact at their company',
-			},
-			{
-				displayName: 'Twitter',
-				name: 'Twitter',
-				type: 'string',
-				default: '',
+				displayName: 'Field',
+				name: 'fields',
+				values: [
+					{
+						displayName: 'Field',
+						name: 'field',
+						type: 'options',
+						typeOptions: {
+							loadOptionsMethod: 'getFields',
+							loadOptionsDependsOn: ['resource'],
+						},
+						default: '',
+						description: 'Field to set',
+					},
+					{
+						displayName: 'Value',
+						name: 'value',
+						type: 'string',
+						default: '',
+						description: 'Value to set',
+					},
+				],
 			},
 		],
 	},

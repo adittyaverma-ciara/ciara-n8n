@@ -26,6 +26,12 @@ export const vendorOperations: INodeProperties[] = [
 				action: 'Create a vendor',
 			},
 			{
+				name: 'Search',
+				value: 'search',
+				description: 'Search for vendors',
+				action: 'Search vendors',
+			},
+			{
 				name: 'Create or Update',
 				value: 'upsert',
 				description: 'Create a new record, or update the current one if it already exists (upsert)',
@@ -61,6 +67,76 @@ export const vendorOperations: INodeProperties[] = [
 ];
 
 export const vendorFields: INodeProperties[] = [
+	// ----------------------------------------
+	//           vendor: search
+	// ----------------------------------------
+	{
+		displayName: 'Search Filters',
+		name: 'searchFilters',
+		type: 'fixedCollection',
+		placeholder: 'Add Filter',
+		default: {},
+		typeOptions: {
+			multipleValues: true,
+		},
+		displayOptions: {
+			show: {
+				resource: ['vendor'],
+				operation: ['search'],
+			},
+		},
+		options: [
+			{
+				displayName: 'Filter',
+				name: 'filters',
+				values: [
+					{
+						displayName: 'Field',
+						name: 'field',
+						type: 'options',
+						typeOptions: {
+							loadOptionsMethod: 'getFields',
+							loadOptionsDependsOn: ['resource'],
+						},
+						default: '',
+						description: 'Field to filter by',
+					},
+					{
+						displayName: 'Operator',
+						name: 'operator',
+						type: 'options',
+						options: [
+							{ name: 'Equals', value: 'equals' },
+							{ name: 'Not Equals', value: 'not_equals' },
+							{ name: 'Contains', value: 'contains' },
+							{ name: 'Does Not Contain', value: 'not_contains' },
+							{ name: 'Starts With', value: 'starts_with' },
+							{ name: 'Ends With', value: 'ends_with' },
+							{ name: 'Greater Than', value: 'greater_than' },
+							{ name: 'Less Than', value: 'less_than' },
+							{ name: 'Greater or Equal', value: 'greater_equal' },
+							{ name: 'Less or Equal', value: 'less_equal' },
+							{ name: 'Is Empty', value: 'is_empty' },
+							{ name: 'Is Not Empty', value: 'is_not_empty' },
+						],
+						default: 'equals',
+					},
+					{
+						displayName: 'Value',
+						name: 'value',
+						type: 'string',
+						default: '',
+						description: 'Value to compare',
+						displayOptions: {
+							hide: {
+								operator: ['is_empty', 'is_not_empty'],
+							},
+						},
+					},
+				],
+			},
+		],
+	},
 	// ----------------------------------------
 	//            vendor: create
 	// ----------------------------------------
@@ -103,9 +179,12 @@ export const vendorFields: INodeProperties[] = [
 	{
 		displayName: 'Additional Fields',
 		name: 'additionalFields',
-		type: 'collection',
+		type: 'fixedCollection',
 		placeholder: 'Add Field',
 		default: {},
+		typeOptions: {
+			multipleValues: true,
+		},
 		displayOptions: {
 			show: {
 				resource: ['vendor'],
@@ -113,48 +192,32 @@ export const vendorFields: INodeProperties[] = [
 			},
 		},
 		options: [
-			address,
 			{
-				displayName: 'Category',
-				name: 'Category',
-				type: 'string',
-				default: '',
-			},
-			{
-				displayName: 'Currency',
-				name: 'Currency',
-				type: 'options',
-				default: 'USD',
-				options: currencies,
-			},
-			makeCustomFieldsFixedCollection('vendor'),
-			{
-				displayName: 'Description',
-				name: 'Description',
-				type: 'string',
-				default: '',
-			},
-			{
-				displayName: 'Email',
-				name: 'Email',
-				type: 'string',
-				default: '',
-			},
-			{
-				displayName: 'Phone',
-				name: 'Phone',
-				type: 'string',
-				default: '',
-			},
-			{
-				displayName: 'Website',
-				name: 'Website',
-				type: 'string',
-				default: '',
+				displayName: 'Field',
+				name: 'fields',
+				values: [
+					{
+						displayName: 'Field',
+						name: 'field',
+						type: 'options',
+						typeOptions: {
+							loadOptionsMethod: 'getFields',
+							loadOptionsDependsOn: ['resource'],
+						},
+						default: '',
+						description: 'Field to set',
+					},
+					{
+						displayName: 'Value',
+						name: 'value',
+						type: 'string',
+						default: '',
+						description: 'Value to set',
+					},
+				],
 			},
 		],
 	},
-
 	// ----------------------------------------
 	//             vendor: delete
 	// ----------------------------------------

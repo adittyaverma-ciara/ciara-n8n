@@ -27,6 +27,12 @@ export const accountOperations: INodeProperties[] = [
 				action: 'Create an account',
 			},
 			{
+				name: 'Search',
+				value: 'search',
+				description: 'Search for accounts by criteria',
+				action: 'Search accounts',
+			},
+			{
 				name: 'Create or Update',
 				value: 'upsert',
 				description: 'Create a new record, or update the current one if it already exists (upsert)',
@@ -65,6 +71,75 @@ export const accountFields: INodeProperties[] = [
 	// ----------------------------------------
 	//            account: create
 	// ----------------------------------------
+	// ----------------------------------------
+	//            account: search
+	// ----------------------------------------
+	// (Removed Search Criteria field from search UI)
+	{
+		displayName: 'Search Filters',
+		name: 'searchFilters',
+		type: 'fixedCollection',
+		placeholder: 'Add Filter',
+		default: {},
+		typeOptions: {
+			multipleValues: true,
+		},
+		displayOptions: {
+			show: {
+				resource: ['account'],
+				operation: ['search'],
+			},
+		},
+		options: [
+			{
+				displayName: 'Filter',
+				name: 'filters',
+				values: [
+					{
+						displayName: 'Field',
+						name: 'field',
+						type: 'options',
+						typeOptions: {
+							loadOptionsMethod: 'getFields',
+							loadOptionsDependsOn: ['resource'],
+						},
+						default: '',
+						description: 'Field to filter by',
+					},
+					{
+						displayName: 'Operator',
+						name: 'operator',
+						type: 'options',
+						options: [
+							{ name: 'Equals', value: 'equals' },
+							{ name: 'Not Equals', value: 'not_equal' },
+							{ name: 'Contains', value: 'in' },
+							{ name: 'Starts With', value: 'starts_with' },
+							{ name: 'Greater Than', value: 'greater_than' },
+							{ name: 'Less Than', value: 'less_than' },
+							{ name: 'Greater or Equal', value: 'greater_equal' },
+							{ name: 'Less or Equal', value: 'less_equal' },
+							{ name: 'Between', value: 'between' },
+						],
+						default: 'equals',
+						description: 'Operator to use for this field. Only Zoho-supported operators are shown.',
+					},
+					{
+						displayName: 'Value',
+						name: 'value',
+						type: 'string',
+						default: '',
+						description: 'Value to compare',
+						displayOptions: {
+							hide: {
+								operator: ['is_empty', 'is_not_empty'],
+							},
+						},
+					},
+				],
+			},
+		],
+	},
 	{
 		displayName: 'Account Name',
 		name: 'accountName',
@@ -104,9 +179,12 @@ export const accountFields: INodeProperties[] = [
 	{
 		displayName: 'Additional Fields',
 		name: 'additionalFields',
-		type: 'collection',
+		type: 'fixedCollection',
 		placeholder: 'Add Field',
 		default: {},
+		typeOptions: {
+			multipleValues: true,
+		},
 		displayOptions: {
 			show: {
 				resource: ['account'],
@@ -115,101 +193,28 @@ export const accountFields: INodeProperties[] = [
 		},
 		options: [
 			{
-				displayName: 'Account Number',
-				name: 'Account_Number',
-				type: 'string',
-				default: '',
-			},
-			{
-				displayName: 'Account Site',
-				name: 'Account_Site',
-				type: 'string',
-				default: '',
-				description: 'Name of the account’s location, e.g. Headquarters or London',
-			},
-			{
-				displayName: 'Account Type Name or ID',
-				name: 'Account_Type',
-				type: 'options',
-				description:
-					'Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>',
-				typeOptions: {
-					loadOptionsMethod: 'getAccountType',
-				},
-				default: [],
-			},
-			{
-				displayName: 'Annual Revenue',
-				name: 'Annual_Revenue',
-				type: 'number',
-				default: '',
-			},
-			billingAddress,
-			{
-				displayName: 'Contact Details',
-				name: 'Contact_Details',
-				type: 'string',
-				default: '',
-			},
-			{
-				displayName: 'Currency',
-				name: 'Currency',
-				type: 'options',
-				default: 'USD',
-				description: 'Symbol of the currency in which revenue is generated',
-				options: currencies,
-			},
-			makeCustomFieldsFixedCollection('account'),
-			{
-				displayName: 'Description',
-				name: 'Description',
-				type: 'string',
-				default: '',
-			},
-			{
-				displayName: 'Employees',
-				name: 'Employees',
-				type: 'number',
-				default: '',
-				description: 'Number of employees in the account’s company',
-			},
-			{
-				displayName: 'Exchange Rate',
-				name: 'Exchange_Rate',
-				type: 'number',
-				default: '',
-				description: 'Exchange rate of the default currency to the home currency',
-			},
-			{
-				displayName: 'Fax',
-				name: 'Fax',
-				type: 'string',
-				default: '',
-			},
-			{
-				displayName: 'Industry',
-				name: 'Industry',
-				type: 'string',
-				default: '',
-			},
-			{
-				displayName: 'Phone',
-				name: 'Phone',
-				type: 'string',
-				default: '',
-			},
-			shippingAddress,
-			{
-				displayName: 'Ticker Symbol',
-				name: 'Ticker_Symbol',
-				type: 'string',
-				default: '',
-			},
-			{
-				displayName: 'Website',
-				name: 'Website',
-				type: 'string',
-				default: '',
+				displayName: 'Field',
+				name: 'fields',
+				values: [
+					{
+						displayName: 'Field',
+						name: 'field',
+						type: 'options',
+						typeOptions: {
+							loadOptionsMethod: 'getFields',
+							loadOptionsDependsOn: ['resource'],
+						},
+						default: '',
+						description: 'Field to set',
+					},
+					{
+						displayName: 'Value',
+						name: 'value',
+						type: 'string',
+						default: '',
+						description: 'Value to set',
+					},
+				],
 			},
 		],
 	},
@@ -275,9 +280,12 @@ export const accountFields: INodeProperties[] = [
 	{
 		displayName: 'Update Fields',
 		name: 'updateFields',
-		type: 'collection',
+		type: 'fixedCollection',
 		placeholder: 'Add Field',
 		default: {},
+		typeOptions: {
+			multipleValues: true,
+		},
 		displayOptions: {
 			show: {
 				resource: ['account'],
@@ -286,107 +294,28 @@ export const accountFields: INodeProperties[] = [
 		},
 		options: [
 			{
-				displayName: 'Account Name',
-				name: 'Account_Name',
-				type: 'string',
-				default: '',
-			},
-			{
-				displayName: 'Account Number',
-				name: 'Account_Number',
-				type: 'string',
-				default: '',
-			},
-			{
-				displayName: 'Account Site',
-				name: 'Account_Site',
-				type: 'string',
-				default: '',
-				description: 'Name of the account’s location, e.g. Headquarters or London',
-			},
-			{
-				displayName: 'Account Type Name or ID',
-				name: 'Account_Type',
-				type: 'options',
-				description:
-					'Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>',
-				typeOptions: {
-					loadOptionsMethod: 'getAccountType',
-				},
-				default: [],
-			},
-			{
-				displayName: 'Annual Revenue',
-				name: 'Annual_Revenue',
-				type: 'number',
-				default: '',
-			},
-			billingAddress,
-			{
-				displayName: 'Contact Details',
-				name: 'Contact_Details',
-				type: 'string',
-				default: '',
-			},
-			{
-				displayName: 'Currency',
-				name: 'Currency',
-				type: 'options',
-				default: 'USD',
-				description: 'Symbol of the currency in which revenue is generated',
-				options: currencies,
-			},
-			makeCustomFieldsFixedCollection('account'),
-			{
-				displayName: 'Description',
-				name: 'Description',
-				type: 'string',
-				default: '',
-			},
-			{
-				displayName: 'Employees',
-				name: 'Employees',
-				type: 'number',
-				default: '',
-				description: 'Number of employees in the account’s company',
-			},
-			{
-				displayName: 'Exchange Rate',
-				name: 'Exchange_Rate',
-				type: 'number',
-				default: '',
-				description: 'Exchange rate of the default currency to the home currency',
-			},
-			{
-				displayName: 'Fax',
-				name: 'Fax',
-				type: 'string',
-				default: '',
-			},
-			{
-				displayName: 'Industry',
-				name: 'Industry',
-				type: 'string',
-				default: '',
-			},
-			{
-				displayName: 'Phone',
-				name: 'Phone',
-				type: 'string',
-				default: '',
-			},
-			shippingAddress,
-			{
-				displayName: 'Ticker Symbol',
-				name: 'Ticker_Symbol',
-				type: 'string',
-				default: '',
-			},
-			{
-				displayName: 'Website',
-				name: 'Website',
-				type: 'string',
-				default: '',
+				displayName: 'Field',
+				name: 'fields',
+				values: [
+					{
+						displayName: 'Field',
+						name: 'field',
+						type: 'options',
+						typeOptions: {
+							loadOptionsMethod: 'getFields',
+							loadOptionsDependsOn: ['resource'],
+						},
+						default: '',
+						description: 'Field to update',
+					},
+					{
+						displayName: 'Value',
+						name: 'value',
+						type: 'string',
+						default: '',
+						description: 'Value to set',
+					},
+				],
 			},
 		],
 	},

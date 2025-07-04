@@ -21,6 +21,12 @@ export const dealOperations: INodeProperties[] = [
 				action: 'Create a deal',
 			},
 			{
+				name: 'Search',
+				value: 'search',
+				description: 'Search for deals',
+				action: 'Search deals',
+			},
+			{
 				name: 'Create or Update',
 				value: 'upsert',
 				description: 'Create a new record, or update the current one if it already exists (upsert)',
@@ -56,6 +62,76 @@ export const dealOperations: INodeProperties[] = [
 ];
 
 export const dealFields: INodeProperties[] = [
+	// ----------------------------------------
+	//              deal: search
+	// ----------------------------------------
+	{
+		displayName: 'Search Filters',
+		name: 'searchFilters',
+		type: 'fixedCollection',
+		placeholder: 'Add Filter',
+		default: {},
+		typeOptions: {
+			multipleValues: true,
+		},
+		displayOptions: {
+			show: {
+				resource: ['deal'],
+				operation: ['search'],
+			},
+		},
+		options: [
+			{
+				displayName: 'Filter',
+				name: 'filters',
+				values: [
+					{
+						displayName: 'Field',
+						name: 'field',
+						type: 'options',
+						typeOptions: {
+							loadOptionsMethod: 'getFields',
+							loadOptionsDependsOn: ['resource'],
+						},
+						default: '',
+						description: 'Field to filter by',
+					},
+					{
+						displayName: 'Operator',
+						name: 'operator',
+						type: 'options',
+						options: [
+							{ name: 'Equals', value: 'equals' },
+							{ name: 'Not Equals', value: 'not_equals' },
+							{ name: 'Contains', value: 'contains' },
+							{ name: 'Does Not Contain', value: 'not_contains' },
+							{ name: 'Starts With', value: 'starts_with' },
+							{ name: 'Ends With', value: 'ends_with' },
+							{ name: 'Greater Than', value: 'greater_than' },
+							{ name: 'Less Than', value: 'less_than' },
+							{ name: 'Greater or Equal', value: 'greater_equal' },
+							{ name: 'Less or Equal', value: 'less_equal' },
+							{ name: 'Is Empty', value: 'is_empty' },
+							{ name: 'Is Not Empty', value: 'is_not_empty' },
+						],
+						default: 'equals',
+					},
+					{
+						displayName: 'Value',
+						name: 'value',
+						type: 'string',
+						default: '',
+						description: 'Value to compare',
+						displayOptions: {
+							hide: {
+								operator: ['is_empty', 'is_not_empty'],
+							},
+						},
+					},
+				],
+			},
+		],
+	},
 	// ----------------------------------------
 	//              deal: create
 	// ----------------------------------------
@@ -115,9 +191,12 @@ export const dealFields: INodeProperties[] = [
 	{
 		displayName: 'Additional Fields',
 		name: 'additionalFields',
-		type: 'collection',
+		type: 'fixedCollection',
 		placeholder: 'Add Field',
 		default: {},
+		typeOptions: {
+			multipleValues: true,
+		},
 		displayOptions: {
 			show: {
 				resource: ['deal'],
@@ -126,71 +205,28 @@ export const dealFields: INodeProperties[] = [
 		},
 		options: [
 			{
-				displayName: 'Amount',
-				name: 'Amount',
-				type: 'number',
-				default: '',
-				description: 'Monetary amount of the deal',
-			},
-			{
-				displayName: 'Closing Date',
-				name: 'Closing_Date',
-				type: 'dateTime',
-				default: '',
-			},
-			{
-				displayName: 'Currency',
-				name: 'Currency',
-				type: 'options',
-				default: 'USD',
-				description: 'Symbol of the currency in which revenue is generated',
-				options: currencies,
-			},
-			makeCustomFieldsFixedCollection('deal'),
-			{
-				displayName: 'Description',
-				name: 'Description',
-				type: 'string',
-				default: '',
-			},
-			{
-				displayName: 'Lead Conversion Time',
-				name: 'Lead_Conversion_Time',
-				type: 'number',
-				default: '',
-				description: 'Average number of days to convert the lead into a deal',
-			},
-			{
-				displayName: 'Next Step',
-				name: 'Next_Step',
-				type: 'string',
-				default: '',
-				description: 'Description of the next step in the sales process',
-			},
-			{
-				displayName: 'Overall Sales Duration',
-				name: 'Overall_Sales_Duration',
-				type: 'number',
-				default: '',
-				description: 'Average number of days to convert the lead into a deal and to win the deal',
-			},
-			{
-				displayName: 'Probability',
-				name: 'Probability',
-				type: 'number',
-				typeOptions: {
-					minValue: 0,
-					maxValue: 100,
-				},
-				default: '',
-				description: 'Probability of deal closure as a percentage. For example, enter 12 for 12%.',
-			},
-			{
-				displayName: 'Sales Cycle Duration',
-				name: 'Sales_Cycle_Duration',
-				type: 'number',
-				default: 0,
-				description: 'Average number of days for the deal to be won',
+				displayName: 'Field',
+				name: 'fields',
+				values: [
+					{
+						displayName: 'Field',
+						name: 'field',
+						type: 'options',
+						typeOptions: {
+							loadOptionsMethod: 'getFields',
+							loadOptionsDependsOn: ['resource'],
+						},
+						default: '',
+						description: 'Field to set',
+					},
+					{
+						displayName: 'Value',
+						name: 'value',
+						type: 'string',
+						default: '',
+						description: 'Value to set',
+					},
+				],
 			},
 		],
 	},

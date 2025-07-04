@@ -512,7 +512,7 @@ export class ZohoCrm implements INodeType {
 						//             contact: search
 						// ----------------------------------------
 						const searchFilters = this.getNodeParameter('searchFilters', i);
-						const criteria = buildCriteriaFromFilters(searchFilters);
+						const criteria = await buildCriteriaFromFilters(searchFilters);
 						const qs: IDataObject = { criteria };
 						responseData = await zohoApiRequest.call(this, 'GET', '/Contacts/search', {}, qs);
 						responseData = responseData.data;

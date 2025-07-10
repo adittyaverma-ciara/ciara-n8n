@@ -19,6 +19,7 @@ import {
 	agentVoiceProvider,
 	LeadStatusTypesE,
 	NormalObjT,
+	RetellCallTypesE,
 } from './helper';
 import Retell from 'retell-sdk';
 import { GlobalConfig } from '@n8n/config';
@@ -94,20 +95,28 @@ export class CallAgent implements INodeType {
 		const connection = await getDbConnection();
 		const objectInfo = Object.assign(this);
 		const timezone = objectInfo?.workflow?.settings?.timezone || 'UTC';
-		let sdrAgent, sdrAgentId;
-
+		let sdrAgent, sdrAgentId, segmentId;
+		const workflow = this.getWorkflow();
+		const playbookId = workflow.id as string;
 		try {
-			const sdrAgentId = this.getNodeParameter('sdrAgentId', 0) as number;
-			await sendEngineWebhook({ agentId: sdrAgentId, isRunning: true }, engineWebhookUrl);
+			sdrAgentId = this.getNodeParameter('sdrAgentId', 0) as number;
+			await sendEngineWebhook(
+				{ agentId: sdrAgentId, isRunning: true, playbookId },
+				engineWebhookUrl,
+			);
 
 			if (sdrAgentId) {
 				sdrAgent = await fetchSDRAgent(connection, sdrAgentId);
-			} else throw new NodeOperationError(this.getNode(), 'No active Call agent found.');
+			}
+
+			if (!sdrAgent) throw new NodeOperationError(this.getNode(), 'No active Call agent found.');
+
 			const inputData = this.getInputData();
 			const contacts = inputData?.map((input) => input.json) || [];
 
+			segmentId = contacts.length > 0 ? contacts[0].segmentId : null;
 			// Process calls
-			const callResults = await processCalls(connection, contacts, sdrAgent, timezone);
+			const callResults = await processCalls(connection, contacts, sdrAgent, timezone, workflow.id);
 
 			// return [this.helpers.returnJsonArray(callResults)];
 			return callResults?.length > 0
@@ -123,10 +132,20 @@ export class CallAgent implements INodeType {
 			connection.release();
 			throw new NodeOperationError(this.getNode(), error.message || 'Unknown error');
 		} finally {
-			connection.release();
 			if (sdrAgentId) {
-				await sendEngineWebhook({ agentId: sdrAgentId, isRunning: false }, engineWebhookUrl);
+				await sendEngineWebhook(
+					{ agentId: sdrAgentId, isRunning: false, playbookId },
+					engineWebhookUrl,
+				);
+				await storeExecutionDetails(connection, [
+					workflow.id,
+					workflow.name,
+					sdrAgentId,
+					segmentId,
+					workflow.active,
+				]);
 			}
+			connection.release();
 		}
 	}
 }
@@ -136,7 +155,7 @@ async function fetchSDRAgent(connection: any, sdrAgentId: number) {
 	const [results] = await connection.execute(
 		`SELECT sa.*, sa.id as agent_id
 			FROM sdr_agents AS sa
- 			WHERE sa.id = ?`, // AND sa.status = 'ACTIVE' // need to check
+ 			WHERE sa.id = ? AND sa.status = 'active'`,
 		[sdrAgentId],
 	);
 	return results.length ? results[0] : null;
@@ -148,6 +167,7 @@ export async function processCalls(
 	contacts: any,
 	sdrAgent: any,
 	timezone: string,
+	workflowId?: string,
 ) {
 	const callPromises = contacts.map(async (contact: any) => {
 		try {
@@ -160,13 +180,13 @@ export async function processCalls(
 				const dynamicVariableObj = createDynamicObject(contact?.custom_fields);
 				const callDynamicVariable: any = {};
 				callDynamicVariable['recipientName'] = contact.name?.split(' ')?.[0] || '';
-				callDynamicVariable['productName'] = contact.product_of_interest;
 				callDynamicVariable['currentTime'] = adjustTimeByOffset(new Date(), timezone);
 
 				const leadDetails = {
 					...dynamicVariableObj,
 					...contact,
 				};
+
 				Object.keys(dynamicVariable)?.reduce((acc, curr) => {
 					acc[curr] = leadDetails[dynamicVariable[curr]] || '';
 					return acc;
@@ -175,6 +195,10 @@ export async function processCalls(
 				callDynamicVariable['companyName'] = isVariableValue(sdrAgent.company_name)
 					? leadDetails[extractVariableName(sdrAgent.company_name) || ''] || ''
 					: sdrAgent.company_name;
+
+				callDynamicVariable['productName'] = isVariableValue(sdrAgent.product_name)
+					? leadDetails[extractVariableName(sdrAgent.product_name) || ''] || ''
+					: sdrAgent.product_name;
 
 				Object.assign(callDynamicVariable, constantVariables);
 
@@ -206,8 +230,10 @@ export async function processCalls(
 						contact.id,
 						contact.segmentId,
 						contact.priority,
-						contact.product_of_interest,
+						callDynamicVariable['productName'],
 						LeadStatusTypesE.CALLING,
+						RetellCallTypesE.PHONE_CALL,
+						workflowId,
 					]);
 
 					await updateCallStatus(connection, contact.id, 'calling');
@@ -232,8 +258,8 @@ export async function storeCallDetails(connection: any, record: any[]) {
 	const [result]: any = await connection.execute(
 		`INSERT INTO sdr_agents_call_details (
 			sdr_agent_id, call_current_status, retell_call_id, company_id, 
-			lead_id, segment_id, lead_priority, lead_product_of_interest, lead_status
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			lead_id, segment_id, lead_priority, lead_product_of_interest, lead_status, call_type, playbook_id
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		record,
 	);
 	return result.insertId;
@@ -244,6 +270,16 @@ export async function updateCallStatus(connection: any, contactId: number, statu
 		status,
 		contactId,
 	]);
+}
+
+export async function storeExecutionDetails(connection: any, record: any[]) {
+	const [result]: any = await connection.execute(
+		`INSERT INTO ciara_playbook_executions (
+			playbook_id, playbook_name, agent_id, segment_id, is_active
+		) VALUES (?, ?, ?, ?, ?)`,
+		record,
+	);
+	return result.insertId;
 }
 
 // 🔹 Retell API Helper Functions
@@ -274,7 +310,7 @@ export async function createPhoneCall(
 }
 
 export async function sendEngineWebhook(
-	payload: { agentId: number; isRunning: boolean },
+	payload: { agentId: number; isRunning: boolean; playbookId: string },
 	engineWebhookUrl: string,
 ) {
 	try {

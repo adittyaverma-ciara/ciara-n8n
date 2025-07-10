@@ -220,6 +220,10 @@ export declare namespace UserRequest {
 		{ limit?: number; offset?: number; cursor?: string; includeRole?: boolean; projectId?: string }
 	>;
 
+	export type GetUserAuth = AuthenticatedRequest<{ id: string }, {}, {}, {}>;
+
+	export type RevokeUserAuth = AuthenticatedRequest<{}, {}, {}, {}>;
+
 	export type PasswordResetLink = AuthenticatedRequest<{ id: string }, {}, {}, {}>;
 }
 

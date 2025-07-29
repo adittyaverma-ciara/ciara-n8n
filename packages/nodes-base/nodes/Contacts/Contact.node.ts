@@ -275,7 +275,7 @@ async function checkLeadExist(connection: any, companyId: number, lead: any) {
 
 	if (!conditions.length) return null;
 	const [results] = await connection.execute(
-		`SELECT id FROM customers_and_leads WHERE ${conditions.join(' AND ')}`,
+		`SELECT * FROM customers_and_leads WHERE ${conditions.join(' AND ')}`,
 		values,
 	);
 

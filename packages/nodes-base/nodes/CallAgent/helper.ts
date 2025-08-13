@@ -160,3 +160,7 @@ export function extractVariableName(value: string): string | null {
 export function isVariableValue(value: string): boolean {
 	return /^\{\{.+\}\}$/.test(value.trim());
 }
+
+export function getValueByPath(obj: any, path: string) {
+	return path.split('.').reduce((acc, key) => (acc && key in acc ? acc[key] : undefined), obj);
+}

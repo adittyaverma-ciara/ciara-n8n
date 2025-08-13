@@ -20,6 +20,7 @@ import {
 	LeadStatusTypesE,
 	NormalObjT,
 	RetellCallTypesE,
+	getValueByPath,
 } from './helper';
 import Retell from 'retell-sdk';
 import { GlobalConfig } from '@n8n/config';
@@ -188,7 +189,11 @@ export async function processCalls(
 				};
 
 				Object.keys(dynamicVariable)?.reduce((acc, curr) => {
-					acc[curr] = leadDetails[dynamicVariable[curr]] || '';
+					const path = dynamicVariable[curr];
+					acc[curr] =
+						typeof path === 'string' && path.includes('.')
+							? getValueByPath(leadDetails, path) || ''
+							: leadDetails[path] || '';
 					return acc;
 				}, callDynamicVariable);
 

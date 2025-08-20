@@ -1,0 +1,34 @@
+get:
+  x-eov-operation-id: getUserAuth
+  x-eov-operation-handler: v1/handlers/users/users.handler.ee
+  tags:
+    - User
+  summary: Get user-auth by ID
+  description: Retrieve a user from your instance. Only available for the instance owner.
+  parameters:
+    - $ref: '../schemas/parameters/userIdentifier.yml'
+  responses:
+    '200':
+      description: Operation successful.
+      content:
+        application/json:
+          schema:
+            $ref: '../schemas/user.yml'
+    '401':
+      $ref: '../../../../shared/spec/responses/unauthorized.yml'
+delete:
+  x-eov-operation-id: revokeUserAuth
+  x-eov-operation-handler: v1/handlers/users/users.handler.ee
+  tags:
+    - User
+  summary: Revoke a user auth token
+  description: Revoke a user auth token from your instance.
+  responses:
+    '204':
+      description: Operation successful.
+    '401':
+      $ref: '../../../../shared/spec/responses/unauthorized.yml'
+    '403':
+      $ref: '../../../../shared/spec/responses/forbidden.yml'
+    '404':
+      $ref: '../../../../shared/spec/responses/notFound.yml'

@@ -26,6 +26,12 @@ export const leadOperations: INodeProperties[] = [
 				action: 'Create a lead',
 			},
 			{
+				name: 'Search',
+				value: 'search',
+				description: 'Search for leads',
+				action: 'Search leads',
+			},
+			{
 				name: 'Create or Update',
 				value: 'upsert',
 				description: 'Create a new record, or update the current one if it already exists (upsert)',
@@ -100,9 +106,12 @@ export const leadFields: INodeProperties[] = [
 	{
 		displayName: 'Additional Fields',
 		name: 'additionalFields',
-		type: 'collection',
+		type: 'fixedCollection',
 		placeholder: 'Add Field',
 		default: {},
+		typeOptions: {
+			multipleValues: true,
+		},
 		displayOptions: {
 			show: {
 				resource: ['lead'],
@@ -110,141 +119,169 @@ export const leadFields: INodeProperties[] = [
 			},
 		},
 		options: [
-			address,
 			{
-				displayName: 'Annual Revenue',
-				name: 'Annual_Revenue',
-				type: 'number',
-				default: '',
-				description: 'Annual revenue of the lead’s company',
+				displayName: 'Field',
+				name: 'fields',
+				values: [
+					{
+						displayName: 'Field',
+						name: 'field',
+						type: 'options',
+						typeOptions: {
+							loadOptionsMethod: 'getFields',
+							loadOptionsDependsOn: ['resource'],
+						},
+						default: '',
+						description: 'Field to set',
+					},
+					{
+						displayName: 'Value',
+						name: 'value',
+						type: 'string',
+						default: '',
+						description: 'Value to set',
+					},
+				],
 			},
-			{
-				displayName: 'Currency',
-				name: 'Currency',
-				type: 'options',
-				default: 'USD',
-				description: 'Symbol of the currency in which revenue is generated',
-				options: currencies,
+		],
+	},
+
+	// ----------------------------------------
+	//             lead: search
+	// ----------------------------------------
+	{
+		displayName: 'Search Filters',
+		name: 'searchFilters',
+		type: 'fixedCollection',
+		placeholder: 'Add Filter',
+		default: {},
+		typeOptions: {
+			multipleValues: true,
+		},
+		displayOptions: {
+			show: {
+				resource: ['lead'],
+				operation: ['search'],
 			},
-			makeCustomFieldsFixedCollection('lead'),
+		},
+		options: [
 			{
-				displayName: 'Description',
-				name: 'Description',
-				type: 'string',
-				default: '',
+				displayName: 'Filter',
+				name: 'filters',
+				values: [
+					{
+						displayName: 'Field',
+						name: 'field',
+						type: 'options',
+						typeOptions: {
+							loadOptionsMethod: 'getFields',
+							loadOptionsDependsOn: ['resource'],
+						},
+						default: '',
+						description: 'Field to filter by',
+					},
+					{
+						displayName: 'Operator',
+						name: 'operator',
+						type: 'options',
+						options: [
+							{ name: 'Equals', value: 'equals' },
+							{ name: 'Not Equals', value: 'not_equals' },
+							{ name: 'Contains', value: 'contains' },
+							{ name: 'Does Not Contain', value: 'not_contains' },
+							{ name: 'Starts With', value: 'starts_with' },
+							{ name: 'Ends With', value: 'ends_with' },
+							{ name: 'Greater Than', value: 'greater_than' },
+							{ name: 'Less Than', value: 'less_than' },
+							{ name: 'Greater or Equal', value: 'greater_equal' },
+							{ name: 'Less or Equal', value: 'less_equal' },
+							{ name: 'Is Empty', value: 'is_empty' },
+							{ name: 'Is Not Empty', value: 'is_not_empty' },
+						],
+						default: 'equals',
+					},
+					{
+						displayName: 'Value',
+						name: 'value',
+						type: 'string',
+						default: '',
+						description: 'Value to compare',
+						displayOptions: {
+							hide: {
+								operator: ['is_empty', 'is_not_empty'],
+							},
+						},
+					},
+				],
 			},
-			{
-				displayName: 'Designation',
-				name: 'Designation',
-				type: 'string',
-				default: '',
-				description: 'Position of the lead at their company',
+		],
+	},
+	{
+		displayName: 'Company',
+		name: 'Company',
+		description: 'Company at which the lead works',
+		type: 'string',
+		required: true,
+		default: '',
+		displayOptions: {
+			show: {
+				resource: ['lead'],
+				operation: ['create'],
 			},
-			{
-				displayName: 'Email',
-				name: 'Email',
-				type: 'string',
-				default: '',
+		},
+	},
+	{
+		displayName: 'Last Name',
+		name: 'lastName',
+		type: 'string',
+		required: true,
+		default: '',
+		displayOptions: {
+			show: {
+				resource: ['lead'],
+				operation: ['create'],
 			},
-			{
-				displayName: 'Email Opt Out',
-				name: 'Email_Opt_Out',
-				type: 'boolean',
-				default: false,
+		},
+	},
+	{
+		displayName: 'Additional Fields',
+		name: 'additionalFields',
+		type: 'fixedCollection',
+		placeholder: 'Add Field',
+		default: {},
+		typeOptions: {
+			multipleValues: true,
+		},
+		displayOptions: {
+			show: {
+				resource: ['lead'],
+				operation: ['create'],
 			},
+		},
+		options: [
 			{
-				displayName: 'Fax',
-				name: 'Fax',
-				type: 'string',
-				default: '',
-			},
-			{
-				displayName: 'First Name',
-				name: 'First_Name',
-				type: 'string',
-				default: '',
-			},
-			{
-				displayName: 'Full Name',
-				name: 'Full_Name',
-				type: 'string',
-				default: '',
-			},
-			{
-				displayName: 'Industry',
-				name: 'Industry',
-				type: 'string',
-				default: '',
-				description: 'Industry to which the lead belongs',
-			},
-			{
-				displayName: 'Industry Type',
-				name: 'Industry_Type',
-				type: 'string',
-				default: '',
-				description: 'Type of industry to which the lead belongs',
-			},
-			{
-				displayName: 'Lead Source',
-				name: 'Lead_Source',
-				type: 'string',
-				default: '',
-				description: 'Source from which the lead was created',
-			},
-			{
-				displayName: 'Lead Status',
-				name: 'Lead_Status',
-				type: 'string',
-				default: '',
-			},
-			{
-				displayName: 'Mobile',
-				name: 'Mobile',
-				type: 'string',
-				default: '',
-			},
-			{
-				displayName: 'Number of Employees',
-				name: 'No_of_Employees',
-				type: 'number',
-				default: '',
-				description: 'Number of employees in the lead’s company',
-			},
-			{
-				displayName: 'Phone',
-				name: 'Phone',
-				type: 'string',
-				default: '',
-			},
-			{
-				displayName: 'Salutation',
-				name: 'Salutation',
-				type: 'string',
-				default: '',
-			},
-			{
-				displayName: 'Secondary Email',
-				name: 'Secondary_Email',
-				type: 'string',
-				default: '',
-			},
-			{
-				displayName: 'Skype ID',
-				name: 'Skype_ID',
-				type: 'string',
-				default: '',
-			},
-			{
-				displayName: 'Twitter',
-				name: 'Twitter',
-				type: 'string',
-				default: '',
-			},
-			{
-				displayName: 'Website',
-				name: 'Website',
-				type: 'string',
-				default: '',
+				displayName: 'Field',
+				name: 'fields',
+				values: [
+					{
+						displayName: 'Field',
+						name: 'field',
+						type: 'options',
+						typeOptions: {
+							loadOptionsMethod: 'getFields',
+							loadOptionsDependsOn: ['resource'],
+						},
+						default: '',
+						description: 'Field to set',
+					},
+					{
+						displayName: 'Value',
+						name: 'value',
+						type: 'string',
+						default: '',
+						description: 'Value to set',
+					},
+				],
 			},
 		],
 	},
@@ -282,9 +319,12 @@ export const leadFields: INodeProperties[] = [
 	{
 		displayName: 'Additional Fields',
 		name: 'additionalFields',
-		type: 'collection',
+		type: 'fixedCollection',
 		placeholder: 'Add Field',
 		default: {},
+		typeOptions: {
+			multipleValues: true,
+		},
 		displayOptions: {
 			show: {
 				resource: ['lead'],
@@ -292,143 +332,29 @@ export const leadFields: INodeProperties[] = [
 			},
 		},
 		options: [
-			address,
 			{
-				displayName: 'Annual Revenue',
-				name: 'Annual_Revenue',
-				type: 'number',
-				default: '',
-				description: 'Annual revenue of the lead’s company',
-			},
-			{
-				displayName: 'Currency',
-				name: 'Currency',
-				type: 'options',
-				default: 'USD',
-				description: 'Symbol of the currency in which revenue is generated',
-				options: currencies,
-			},
-			makeCustomFieldsFixedCollection('lead'),
-			{
-				displayName: 'Description',
-				name: 'Description',
-				type: 'string',
-				default: '',
-			},
-			{
-				displayName: 'Designation',
-				name: 'Designation',
-				type: 'string',
-				default: '',
-				description: 'Position of the lead at their company',
-			},
-			{
-				displayName: 'Email',
-				name: 'Email',
-				type: 'string',
-				default: '',
-				description:
-					'Email of the lead. If a record with this email exists it will be updated, otherwise a new one will be created.',
-			},
-			{
-				displayName: 'Email Opt Out',
-				name: 'Email_Opt_Out',
-				type: 'boolean',
-				default: false,
-			},
-			{
-				displayName: 'Fax',
-				name: 'Fax',
-				type: 'string',
-				default: '',
-			},
-			{
-				displayName: 'First Name',
-				name: 'First_Name',
-				type: 'string',
-				default: '',
-			},
-			{
-				displayName: 'Full Name',
-				name: 'Full_Name',
-				type: 'string',
-				default: '',
-			},
-			{
-				displayName: 'Industry',
-				name: 'Industry',
-				type: 'string',
-				default: '',
-				description: 'Industry to which the lead belongs',
-			},
-			{
-				displayName: 'Industry Type',
-				name: 'Industry_Type',
-				type: 'string',
-				default: '',
-				description: 'Type of industry to which the lead belongs',
-			},
-			{
-				displayName: 'Lead Source',
-				name: 'Lead_Source',
-				type: 'string',
-				default: '',
-				description: 'Source from which the lead was created',
-			},
-			{
-				displayName: 'Lead Status',
-				name: 'Lead_Status',
-				type: 'string',
-				default: '',
-			},
-			{
-				displayName: 'Mobile',
-				name: 'Mobile',
-				type: 'string',
-				default: '',
-			},
-			{
-				displayName: 'Number of Employees',
-				name: 'No_of_Employees',
-				type: 'number',
-				default: '',
-				description: 'Number of employees in the lead’s company',
-			},
-			{
-				displayName: 'Phone',
-				name: 'Phone',
-				type: 'string',
-				default: '',
-			},
-			{
-				displayName: 'Salutation',
-				name: 'Salutation',
-				type: 'string',
-				default: '',
-			},
-			{
-				displayName: 'Secondary Email',
-				name: 'Secondary_Email',
-				type: 'string',
-				default: '',
-			},
-			{
-				displayName: 'Skype ID',
-				name: 'Skype_ID',
-				type: 'string',
-				default: '',
-			},
-			{
-				displayName: 'Twitter',
-				name: 'Twitter',
-				type: 'string',
-				default: '',
-			},
-			{
-				displayName: 'Website',
-				name: 'Website',
-				type: 'string',
-				default: '',
+				displayName: 'Field',
+				name: 'fields',
+				values: [
+					{
+						displayName: 'Field',
+						name: 'field',
+						type: 'options',
+						typeOptions: {
+							loadOptionsMethod: 'getFields',
+							loadOptionsDependsOn: ['resource'],
+						},
+						default: '',
+						description: 'Field to set',
+					},
+					{
+						displayName: 'Value',
+						name: 'value',
+						type: 'string',
+						default: '',
+						description: 'Value to set',
+					},
+				],
 			},
 		],
 	},

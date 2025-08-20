@@ -28,6 +28,12 @@ export const quoteOperations: INodeProperties[] = [
 				action: 'Create a quote',
 			},
 			{
+				name: 'Search',
+				value: 'search',
+				description: 'Search for quotes',
+				action: 'Search quotes',
+			},
+			{
 				name: 'Create or Update',
 				value: 'upsert',
 				description: 'Create a new record, or update the current one if it already exists (upsert)',
@@ -63,6 +69,76 @@ export const quoteOperations: INodeProperties[] = [
 ];
 
 export const quoteFields: INodeProperties[] = [
+	// ----------------------------------------
+	//           quote: search
+	// ----------------------------------------
+	{
+		displayName: 'Search Filters',
+		name: 'searchFilters',
+		type: 'fixedCollection',
+		placeholder: 'Add Filter',
+		default: {},
+		typeOptions: {
+			multipleValues: true,
+		},
+		displayOptions: {
+			show: {
+				resource: ['quote'],
+				operation: ['search'],
+			},
+		},
+		options: [
+			{
+				displayName: 'Filter',
+				name: 'filters',
+				values: [
+					{
+						displayName: 'Field',
+						name: 'field',
+						type: 'options',
+						typeOptions: {
+							loadOptionsMethod: 'getFields',
+							loadOptionsDependsOn: ['resource'],
+						},
+						default: '',
+						description: 'Field to filter by',
+					},
+					{
+						displayName: 'Operator',
+						name: 'operator',
+						type: 'options',
+						options: [
+							{ name: 'Equals', value: 'equals' },
+							{ name: 'Not Equals', value: 'not_equals' },
+							{ name: 'Contains', value: 'contains' },
+							{ name: 'Does Not Contain', value: 'not_contains' },
+							{ name: 'Starts With', value: 'starts_with' },
+							{ name: 'Ends With', value: 'ends_with' },
+							{ name: 'Greater Than', value: 'greater_than' },
+							{ name: 'Less Than', value: 'less_than' },
+							{ name: 'Greater or Equal', value: 'greater_equal' },
+							{ name: 'Less or Equal', value: 'less_equal' },
+							{ name: 'Is Empty', value: 'is_empty' },
+							{ name: 'Is Not Empty', value: 'is_not_empty' },
+						],
+						default: 'equals',
+					},
+					{
+						displayName: 'Value',
+						name: 'value',
+						type: 'string',
+						default: '',
+						description: 'Value to compare',
+						displayOptions: {
+							hide: {
+								operator: ['is_empty', 'is_not_empty'],
+							},
+						},
+					},
+				],
+			},
+		],
+	},
 	// ----------------------------------------
 	//            quote: create
 	// ----------------------------------------
@@ -124,9 +200,12 @@ export const quoteFields: INodeProperties[] = [
 	{
 		displayName: 'Additional Fields',
 		name: 'additionalFields',
-		type: 'collection',
+		type: 'fixedCollection',
 		placeholder: 'Add Field',
 		default: {},
+		typeOptions: {
+			multipleValues: true,
+		},
 		displayOptions: {
 			show: {
 				resource: ['quote'],
@@ -135,113 +214,31 @@ export const quoteFields: INodeProperties[] = [
 		},
 		options: [
 			{
-				displayName: 'Adjustment',
-				name: 'Adjustment',
-				type: 'number',
-				default: 0,
-				typeOptions: {
-					minValue: 0,
-				},
-				description: 'Adjustment in the grand total, if any',
-			},
-			billingAddress,
-			{
-				displayName: 'Carrier',
-				name: 'Carrier',
-				type: 'string',
-				default: '',
-			},
-			{
-				displayName: 'Currency',
-				name: 'Currency',
-				type: 'options',
-				default: 'USD',
-				description: 'Symbol of the currency in which revenue is generated',
-				options: currencies,
-			},
-			makeCustomFieldsFixedCollection('quote'),
-			{
-				displayName: 'Description',
-				name: 'Description',
-				type: 'string',
-				default: '',
-			},
-			{
-				displayName: 'Exchange Rate',
-				name: 'Exchange_Rate',
-				type: 'number',
-				default: 0,
-				typeOptions: {
-					minValue: 0,
-				},
-				description: 'Exchange rate of the default currency to the home currency',
-			},
-			{
-				displayName: 'Grand Total',
-				name: 'Grand_Total',
-				type: 'number',
-				default: 0,
-				typeOptions: {
-					minValue: 0,
-				},
-				description: 'Total amount for the product after deducting tax and discounts',
-			},
-			{
-				displayName: 'Quote Stage Name or ID',
-				name: 'Quote_Stage',
-				type: 'options',
-				default: [],
-				typeOptions: {
-					loadOptionsMethod: 'getQuoteStage',
-				},
-				description:
-					'Stage of the quote. Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
-			},
-			shippingAddress,
-			{
-				displayName: 'Sub Total',
-				name: 'Sub_Total',
-				type: 'number',
-				default: 0,
-				typeOptions: {
-					minValue: 0,
-				},
-				description: 'Total amount for the product excluding tax',
-			},
-			{
-				displayName: 'Tax',
-				name: 'Tax',
-				type: 'number',
-				default: 0,
-				typeOptions: {
-					minValue: 0,
-				},
-				description: 'Total amount as the sum of sales tax and value-added tax',
-			},
-			{
-				displayName: 'Team',
-				name: 'Team',
-				type: 'string',
-				default: '',
-				description: 'Team for whom the quote is created',
-			},
-			{
-				displayName: 'Terms and Conditions',
-				name: 'Terms_and_Conditions',
-				type: 'string',
-				default: '',
-				description: 'Terms and conditions associated with the quote',
-			},
-			{
-				displayName: 'Valid Till',
-				name: 'Valid_Till',
-				type: 'dateTime',
-				default: '',
-				description: 'Date until when the quote is valid',
+				displayName: 'Field',
+				name: 'fields',
+				values: [
+					{
+						displayName: 'Field',
+						name: 'field',
+						type: 'options',
+						typeOptions: {
+							loadOptionsMethod: 'getFields',
+							loadOptionsDependsOn: ['resource'],
+						},
+						default: '',
+						description: 'Field to set',
+					},
+					{
+						displayName: 'Value',
+						name: 'value',
+						type: 'string',
+						default: '',
+						description: 'Value to set',
+					},
+				],
 			},
 		],
 	},
-
 	// ----------------------------------------
 	//              quote: delete
 	// ----------------------------------------

@@ -28,6 +28,12 @@ export const purchaseOrderOperations: INodeProperties[] = [
 				action: 'Create a purchase order',
 			},
 			{
+				name: 'Search',
+				value: 'search',
+				description: 'Search for purchase orders',
+				action: 'Search purchase orders',
+			},
+			{
 				name: 'Create or Update',
 				value: 'upsert',
 				description: 'Create a new record, or update the current one if it already exists (upsert)',
@@ -63,6 +69,76 @@ export const purchaseOrderOperations: INodeProperties[] = [
 ];
 
 export const purchaseOrderFields: INodeProperties[] = [
+	// ----------------------------------------
+	//      purchaseOrder: search
+	// ----------------------------------------
+	{
+		displayName: 'Search Filters',
+		name: 'searchFilters',
+		type: 'fixedCollection',
+		placeholder: 'Add Filter',
+		default: {},
+		typeOptions: {
+			multipleValues: true,
+		},
+		displayOptions: {
+			show: {
+				resource: ['purchaseOrder'],
+				operation: ['search'],
+			},
+		},
+		options: [
+			{
+				displayName: 'Filter',
+				name: 'filters',
+				values: [
+					{
+						displayName: 'Field',
+						name: 'field',
+						type: 'options',
+						typeOptions: {
+							loadOptionsMethod: 'getFields',
+							loadOptionsDependsOn: ['resource'],
+						},
+						default: '',
+						description: 'Field to filter by',
+					},
+					{
+						displayName: 'Operator',
+						name: 'operator',
+						type: 'options',
+						options: [
+							{ name: 'Equals', value: 'equals' },
+							{ name: 'Not Equals', value: 'not_equals' },
+							{ name: 'Contains', value: 'contains' },
+							{ name: 'Does Not Contain', value: 'not_contains' },
+							{ name: 'Starts With', value: 'starts_with' },
+							{ name: 'Ends With', value: 'ends_with' },
+							{ name: 'Greater Than', value: 'greater_than' },
+							{ name: 'Less Than', value: 'less_than' },
+							{ name: 'Greater or Equal', value: 'greater_equal' },
+							{ name: 'Less or Equal', value: 'less_equal' },
+							{ name: 'Is Empty', value: 'is_empty' },
+							{ name: 'Is Not Empty', value: 'is_not_empty' },
+						],
+						default: 'equals',
+					},
+					{
+						displayName: 'Value',
+						name: 'value',
+						type: 'string',
+						default: '',
+						description: 'Value to compare',
+						displayOptions: {
+							hide: {
+								operator: ['is_empty', 'is_not_empty'],
+							},
+						},
+					},
+				],
+			},
+		],
+	},
 	// ----------------------------------------
 	//         purchaseOrder: create
 	// ----------------------------------------
@@ -141,9 +217,12 @@ export const purchaseOrderFields: INodeProperties[] = [
 	{
 		displayName: 'Additional Fields',
 		name: 'additionalFields',
-		type: 'collection',
+		type: 'fixedCollection',
 		placeholder: 'Add Field',
 		default: {},
+		typeOptions: {
+			multipleValues: true,
+		},
 		displayOptions: {
 			show: {
 				resource: ['purchaseOrder'],
@@ -152,187 +231,28 @@ export const purchaseOrderFields: INodeProperties[] = [
 		},
 		options: [
 			{
-				displayName: 'Adjustment',
-				name: 'Adjustment',
-				type: 'number',
-				default: 0,
-				typeOptions: {
-					minValue: 0,
-				},
-				description: 'Adjustment in the grand total, if any',
-			},
-			{
-				displayName: 'Billing Address',
-				name: 'Billing_Address',
-				type: 'fixedCollection',
-				default: {},
-				placeholder: 'Add Billing Address Field',
-				options: [
+				displayName: 'Field',
+				name: 'fields',
+				values: [
 					{
-						displayName: 'Billing Address Fields',
-						name: 'billing_address_fields',
-						values: [
-							{
-								displayName: 'Billing City',
-								name: 'Billing_City',
-								type: 'string',
-								default: '',
-							},
-							{
-								displayName: 'Billing Code',
-								name: 'Billing_Code',
-								type: 'string',
-								default: '',
-							},
-							{
-								displayName: 'Billing Country',
-								name: 'Billing_Country',
-								type: 'string',
-								default: '',
-							},
-							{
-								displayName: 'Billing State',
-								name: 'Billing_State',
-								type: 'string',
-								default: '',
-							},
-							{
-								displayName: 'Billing Street',
-								name: 'Billing_Street',
-								type: 'string',
-								default: '',
-							},
-						],
+						displayName: 'Field',
+						name: 'field',
+						type: 'options',
+						typeOptions: {
+							loadOptionsMethod: 'getFields',
+							loadOptionsDependsOn: ['resource'],
+						},
+						default: '',
+						description: 'Field to set',
+					},
+					{
+						displayName: 'Value',
+						name: 'value',
+						type: 'string',
+						default: '',
+						description: 'Value to set',
 					},
 				],
-			},
-			{
-				displayName: 'Carrier',
-				name: 'Carrier',
-				type: 'string',
-				default: '',
-				description: 'Name of the carrier',
-			},
-			{
-				displayName: 'Currency',
-				name: 'Currency',
-				type: 'options',
-				default: 'USD',
-				description: 'Symbol of the currency in which revenue is generated',
-				options: currencies,
-			},
-			makeCustomFieldsFixedCollection('purchaseOrder'),
-			{
-				displayName: 'Description',
-				name: 'Description',
-				type: 'string',
-				default: '',
-			},
-			{
-				displayName: 'Discount',
-				name: 'Discount',
-				type: 'number',
-				description: 'Discount applied to the purchase order. For example, enter 12 for 12%.',
-				default: 0,
-				typeOptions: {
-					minValue: 0,
-				},
-			},
-			{
-				displayName: 'Due Date',
-				name: 'Due_Date',
-				type: 'dateTime',
-				default: '',
-			},
-			{
-				displayName: 'Exchange Rate',
-				name: 'Exchange_Rate',
-				type: 'number',
-				default: 0,
-				typeOptions: {
-					minValue: 0,
-				},
-				description: 'Exchange rate of the default currency to the home currency',
-			},
-			{
-				displayName: 'Grand Total',
-				name: 'Grand_Total',
-				type: 'number',
-				default: 0,
-				typeOptions: {
-					minValue: 0,
-				},
-				description: 'Total amount for the product after deducting tax and discounts',
-			},
-			{
-				displayName: 'PO Date',
-				name: 'PO_Date',
-				type: 'dateTime',
-				default: '',
-				description: 'Date on which the purchase order was issued',
-			},
-			{
-				displayName: 'PO Number',
-				name: 'PO_Number',
-				type: 'string',
-				default: '',
-				description: 'ID of the purchase order after creating a case',
-			},
-			{
-				displayName: 'Sales Commission',
-				name: 'Sales_Commission',
-				type: 'number',
-				default: 0,
-				typeOptions: {
-					minValue: 0,
-				},
-				description:
-					'Commission of sales person on deal closure as a percentage. For example, enter 12 for 12%.',
-			},
-			shippingAddress,
-			{
-				displayName: 'Status Name or ID',
-				name: 'Status',
-				type: 'options',
-				default: [],
-				typeOptions: {
-					loadOptionsMethod: 'getPurchaseOrderStatus',
-				},
-				description:
-					'Status of the purchase order. Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
-			},
-			{
-				displayName: 'Sub Total',
-				name: 'Sub_Total',
-				type: 'number',
-				default: 0,
-				typeOptions: {
-					minValue: 0,
-				},
-				description: 'Total amount for the product excluding tax',
-			},
-			{
-				displayName: 'Tax',
-				name: 'Tax',
-				type: 'number',
-				default: 0,
-				typeOptions: {
-					minValue: 0,
-				},
-				description: 'Tax amount as the sum of sales tax and value-added tax',
-			},
-			{
-				displayName: 'Terms and Conditions',
-				name: 'Terms_and_Conditions',
-				type: 'string',
-				default: '',
-				description: 'Terms and conditions associated with the purchase order',
-			},
-			{
-				displayName: 'Tracking Number',
-				name: 'Tracking_Number',
-				type: 'string',
-				default: '',
 			},
 		],
 	},

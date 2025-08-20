@@ -68,8 +68,14 @@ paths:
     $ref: './handlers/credentials/spec/paths/credentials.id.transfer.yml'
   /workflows/{id}/tags:
     $ref: './handlers/workflows/spec/paths/workflows.id.tags.yml'
+  /workflows/{id}/duplicate:
+    $ref: './handlers/workflows/spec/paths/workflows.id.duplicate.yml'
   /users:
     $ref: './handlers/users/spec/paths/users.yml'
+  /users/auth:
+    $ref: './handlers/users/spec/paths/users.auth.yml'
+  /users/auth/{id}:
+    $ref: './handlers/users/spec/paths/users.auth.yml'
   /users/{id}:
     $ref: './handlers/users/spec/paths/users.id.yml'
   /users/{id}/role:

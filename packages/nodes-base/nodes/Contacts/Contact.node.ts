@@ -110,6 +110,7 @@ export class Contact implements INodeType {
 								...lead,
 								company_id: segment.company_id,
 								status: 'not-contacted',
+								type: 'lead',
 							}),
 						),
 					);
@@ -275,7 +276,7 @@ async function checkLeadExist(connection: any, companyId: number, lead: any) {
 
 	if (!conditions.length) return null;
 	const [results] = await connection.execute(
-		`SELECT id FROM customers_and_leads WHERE ${conditions.join(' AND ')}`,
+		`SELECT * FROM customers_and_leads WHERE ${conditions.join(' AND ')}`,
 		values,
 	);
 
@@ -347,7 +348,7 @@ async function fetchContacts(
          WHERE cals.company_id = ? AND cals.segment_id = ?
 		 ${
 				!isManualExecuted
-					? `AND cal.status NOT IN ('calling', 'non-responsive', 'do-not-call', 'contacted')`
+					? `AND cal.status NOT IN ('retry', 'calling', 'non-responsive', 'do-not-call', 'contacted')`
 					: ''
 			}
          `,

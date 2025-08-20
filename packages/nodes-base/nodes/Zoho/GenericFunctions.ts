@@ -54,7 +54,7 @@ export async function zohoApiRequest(
 		},
 		method,
 		qs,
-		uri: uri || `${oauthTokenData.api_domain}/crm/v2${endpoint}`,
+		uri: uri || `${oauthTokenData.api_domain}/crm/v8${endpoint}`,
 		json: true,
 	};
 
@@ -92,20 +92,23 @@ export async function zohoApiRequestAllItems(
 	endpoint: string,
 	body: IDataObject = {},
 	qs: IDataObject = {},
+	limit?: number,
 ) {
 	const returnData: IDataObject[] = [];
 
 	let responseData;
-	qs.per_page = 200;
+	qs.per_page = limit || 200;
 	qs.page = 1;
-
 	do {
 		responseData = await zohoApiRequest.call(this, method, endpoint, body, qs);
 		if (Array.isArray(responseData) && !responseData.length) return returnData;
 		returnData.push(...(responseData.data as IDataObject[]));
 		qs.page++;
-	} while (responseData.info.more_records !== undefined && responseData.info.more_records === true);
-
+	} while (
+		responseData.info.more_records !== undefined &&
+		responseData.info.more_records === true &&
+		(limit !== undefined ? returnData.length < limit : true)
+	);
 	return returnData;
 }
 
@@ -120,15 +123,13 @@ export async function handleListing(
 	qs: IDataObject = {},
 ) {
 	const returnAll = this.getNodeParameter('returnAll', 0);
+	const limit = this.getNodeParameter('limit', 0, 200);
 
 	if (returnAll) {
 		return await zohoApiRequestAllItems.call(this, method, endpoint, body, qs);
 	}
 
-	const responseData = await zohoApiRequestAllItems.call(this, method, endpoint, body, qs);
-	const limit = this.getNodeParameter('limit', 0);
-
-	return responseData.slice(0, limit);
+	return await zohoApiRequestAllItems.call(this, method, endpoint, body, qs, limit);
 }
 
 export function throwOnEmptyUpdate(this: IExecuteFunctions, resource: CamelCaseResource) {
@@ -363,6 +364,93 @@ export function getModuleName(resource: string) {
 /**
  * Retrieve all fields for a resource, sorted alphabetically.
  */
+
+// Supported operators for each Zoho field type
+const zohoSupportedOperators: Record<string, string[]> = {
+	text: ['equals', 'not_equal', 'starts_with', 'in'],
+	email: ['equals', 'not_equal', 'starts_with', 'in'],
+	phone: ['equals', 'not_equal', 'starts_with', 'in'],
+	website: ['equals', 'not_equal', 'starts_with', 'in'],
+	picklist: ['equals', 'not_equal', 'in'],
+	autonumber: ['equals', 'not_equal', 'in'],
+	date: [
+		'equals',
+		'not_equal',
+		'greater_equal',
+		'greater_than',
+		'less_equal',
+		'less_than',
+		'between',
+		'in',
+	],
+	datetime: [
+		'equals',
+		'not_equal',
+		'greater_equal',
+		'greater_than',
+		'less_equal',
+		'less_than',
+		'between',
+		'in',
+	],
+	integer: [
+		'equals',
+		'not_equal',
+		'greater_equal',
+		'greater_than',
+		'less_equal',
+		'less_than',
+		'between',
+		'in',
+	],
+	currency: [
+		'equals',
+		'not_equal',
+		'greater_equal',
+		'greater_than',
+		'less_equal',
+		'less_than',
+		'between',
+		'in',
+	],
+	decimal: [
+		'equals',
+		'not_equal',
+		'greater_equal',
+		'greater_than',
+		'less_equal',
+		'less_than',
+		'between',
+		'in',
+	],
+	boolean: ['equals', 'not_equal'],
+	textarea: ['equals', 'not_equal', 'starts_with'],
+	lookup: ['equals', 'not_equal', 'in'],
+	owner_lookup: ['equals', 'not_equal', 'in'],
+	user_lookup: ['equals', 'not_equal', 'in'],
+	multiselectpicklist: ['equals', 'not_equal', 'in', 'starts_with'],
+	bigint: [
+		'equals',
+		'not_equal',
+		'greater_than',
+		'greater_equal',
+		'less_than',
+		'less_equal',
+		'between',
+		'in',
+	],
+	percent: [
+		'equals',
+		'not_equal',
+		'greater_than',
+		'greater_equal',
+		'less_than',
+		'less_equal',
+		'between',
+		'in',
+	],
+};
+
 export async function getFields(
 	this: ILoadOptionsFunctions,
 	resource: SnakeCaseResource,
@@ -382,12 +470,57 @@ export async function getFields(
 		fields = fields.filter(({ custom_field }) => custom_field);
 	}
 
-	const options = fields.map(({ field_label, api_name }) => ({
-		name: field_label,
-		value: api_name,
-	}));
+	// Return all field options, but attach supported operators for UI use
+	const options = fields.map((field) => {
+		const { field_label, api_name } = field;
+		// Defensive: check for data_type property
+		const dataType =
+			typeof (field as any).data_type === 'string' ? (field as any).data_type : undefined;
+		return {
+			name: field_label,
+			value: api_name,
+			supportedOperators: dataType ? zohoSupportedOperators[dataType] || ['equals'] : ['equals'],
+			data_type: dataType,
+		};
+	});
 
 	return sortBy(options, (o) => o.name);
+}
+
+// Load supported operators for a given field (for dynamic dropdown)
+export async function getFieldOperators(
+	this: ILoadOptionsFunctions,
+	field: string,
+	resource: SnakeCaseResource,
+) {
+	try {
+		const fields = await getFields.call(this, resource);
+		const found = fields.find((f: any) => f.value === field);
+		if (!found) return [{ name: 'Equals', value: 'equals' }];
+		return (found.supportedOperators || ['equals']).map((op: string) => ({
+			name: op.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase()),
+			value: op,
+		}));
+	} catch (error) {
+		// Graceful fallback for UI: show only Equals if Zoho errors
+		return [{ name: 'Equals', value: 'equals' }];
+	}
+}
+
+// Helper to fetch all field API names for a resource in IExecuteFunctions context
+export async function getFieldsForExecution(
+	context: IExecuteFunctions,
+	resource: SnakeCaseResource,
+): Promise<string[]> {
+	const qs = { module: getModuleName(resource) };
+	const { fields } = (await zohoApiRequest.call(
+		context,
+		'GET',
+		'/settings/fields',
+		{},
+		qs,
+	)) as LoadedFields;
+	return fields.map(({ api_name }) => api_name);
 }
 
 export const capitalizeInitial = (str: string) => str[0].toUpperCase() + str.slice(1);
@@ -434,3 +567,61 @@ export const addGetAllFilterOptions = (qs: IDataObject, options: GetAllFilterOpt
 		Object.assign(qs, fields && { fields: fields.join(',') }, rest);
 	}
 };
+
+// Helper to build Zoho search criteria string from filter builder
+export function buildZohoCriteria(
+	filters: Array<{ field: string; operator: string; value: any }>,
+): string {
+	if (!filters || !filters.length) return '';
+	// Map UI operators to Zoho API operators
+	const opMap: Record<string, string> = {
+		equals: 'equals',
+		not_equals: 'not_equal',
+		contains: 'contains',
+		not_contains: 'not_contains',
+		starts_with: 'starts_with',
+		ends_with: 'ends_with',
+		greater_than: 'greater_than',
+		less_than: 'less_than',
+		greater_equal: 'greater_equal',
+		less_equal: 'less_equal',
+		between: 'between',
+		in: 'in',
+		is_empty: 'is_empty',
+		is_not_empty: 'is_not_empty',
+	};
+	return filters
+		.map((f) => {
+			const op = opMap[f.operator] || 'equals';
+			// For 'in', value should be comma-separated
+			if (op === 'in' && Array.isArray(f.value)) {
+				return `(${f.field}:${op}:${f.value.join(',')})`;
+			}
+			// For between, value should be two values separated by ","
+			if (op === 'between' && Array.isArray(f.value) && f.value.length === 2) {
+				return `(${f.field}:${op}:${f.value[0]},{f.value[1]})`;
+			}
+			// For is_empty/is_not_empty, no value
+			if (op === 'is_empty' || op === 'is_not_empty') {
+				return `(${f.field}:${op})`;
+			}
+			// Default
+			return `(${f.field}:${op}:${f.value})`;
+		})
+		.join('and');
+}
+
+// Patch: Always require at least one filter for search, and always send criteria param
+export async function zohoSearchWithCriteria(
+	this: IExecuteFunctions,
+	resource: SnakeCaseResource,
+	filters: Array<{ field: string; operator: string; value: any }>,
+	qs: IDataObject = {},
+) {
+	const criteria = buildZohoCriteria(filters);
+	if (!criteria) {
+		throw new NodeOperationError(this.getNode(), 'Please add at least one filter to search.');
+	}
+	qs.criteria = criteria;
+	return zohoApiRequest.call(this, 'GET', `/${getModuleName(resource)}/search`, {}, qs);
+}

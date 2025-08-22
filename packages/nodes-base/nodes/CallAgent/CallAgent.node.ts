@@ -235,7 +235,9 @@ export async function processCalls(
 						RetellCallTypesE.PHONE_CALL,
 						workflowId,
 					]);
-
+					if (contact.isCallBackLead) {
+						await updateCallDetails(connection, contact.callBackCallId, { is_callback: true });
+					}
 					await updateCallStatus(connection, contact.id, 'calling');
 					return contact;
 				} else {
@@ -270,6 +272,26 @@ export async function updateCallStatus(connection: any, contactId: number, statu
 		status,
 		contactId,
 	]);
+}
+
+export async function updateCallDetails(
+	connection: any,
+	callId: number,
+	updates: Record<string, any>,
+) {
+	// Build dynamic SET clause
+	const fields = Object.keys(updates);
+	const values = Object.values(updates);
+
+	if (!fields.length) {
+		return; // Nothing to update
+	}
+
+	const setClause = fields.map((field) => `${field} = ?`).join(', ');
+
+	const query = `UPDATE sdr_agents_call_details SET ${setClause} WHERE id = ?`;
+
+	await connection.execute(query, [...values, callId]);
 }
 
 export async function storeExecutionDetails(connection: any, record: any[]) {

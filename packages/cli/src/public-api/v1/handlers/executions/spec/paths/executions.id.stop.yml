@@ -1,0 +1,30 @@
+post:
+  x-eov-operation-id: stopExecution
+  x-eov-operation-handler: v1/handlers/executions/executions.handler
+  tags:
+    - Execution
+  summary: Stop an execution
+  description: Stop a currently running execution by its ID.
+  parameters:
+    - $ref: '../schemas/parameters/executionId.yml'
+  responses:
+    '200':
+      description: Execution stopped successfully.
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              message:
+                type: string
+                example: Execution stopped successfully
+    '400':
+      description: Execution is not running or cannot be stopped.
+      content:
+        application/json:
+          schema:
+            $ref: '../../../../shared/spec/schemas/error.yml'
+    '404':
+      $ref: '../../../../shared/spec/responses/notFound.yml'
+    '401':
+      $ref: '../../../../shared/spec/responses/unauthorized.yml'

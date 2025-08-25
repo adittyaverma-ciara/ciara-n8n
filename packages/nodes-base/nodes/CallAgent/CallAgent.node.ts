@@ -93,9 +93,17 @@ export class CallAgent implements INodeType {
 		const engineWebhookUrl = globalConfig.nodes['engineWebhookUrl'];
 
 		const connection = await getDbConnection();
+		const objectInfo = Object.assign(this);
+		const workflow = this.getWorkflow();
+
+		this.onExecutionCancellation(() => {
+			console.log(
+				`${workflow.id} Workflow is stopped by api due to billing over-due, aborted: ${this.getExecutionCancelSignal()?.aborted}`,
+			);
+		});
+
 		const timezone = this.getTimezone() || 'UTC';
 		let sdrAgent, sdrAgentId, segmentId;
-		const workflow = this.getWorkflow();
 		const playbookId = workflow.id as string;
 		try {
 			sdrAgentId = this.getNodeParameter('sdrAgentId', 0) as number;
@@ -115,12 +123,18 @@ export class CallAgent implements INodeType {
 
 			segmentId = contacts.length > 0 ? contacts[0].segmentId : null;
 			// Process calls
-			const callResults = await processCalls(connection, contacts, sdrAgent, timezone, workflow.id);
+			const callResults = await processCalls(
+				this,
+				connection,
+				contacts,
+				sdrAgent,
+				timezone,
+				workflow.id,
+			);
 
-			// return [this.helpers.returnJsonArray(callResults)];
 			return callResults?.length > 0
 				? [
-						callResults?.map((contact) => ({
+						callResults?.map((contact: any) => ({
 							json: {
 								contact,
 							},
@@ -162,22 +176,32 @@ async function fetchSDRAgent(connection: any, sdrAgentId: number) {
 
 // 🔹 Process calls for previous nodes contact
 export async function processCalls(
+	execCtx: IExecuteFunctions,
 	connection: any,
 	contacts: any,
 	sdrAgent: any,
 	timezone: string,
 	workflowId?: string,
 ) {
-	const callPromises = contacts.map(async (contact: any) => {
+	const callResults: any[] = [];
+
+	for (let i = 0; i < contacts.length; i++) {
+		const contact = contacts[i];
+
+		// 🛑 Stop if the workflow was cancelled
+		if (execCtx.getExecutionCancelSignal()?.aborted) {
+			console.log(`❌ Workflow execution aborted at contact ${i}.`);
+			break;
+		}
+
 		try {
 			console.log(`Calling ${contact.phone_number} from ${sdrAgent.agent_phone_number}...`);
 			if (contact.phone_number && sdrAgent.agent_phone_number) {
 				const parsedCustomVariables = sdrAgent.custom_variable;
-
 				const { constantVariables, dynamicVariable } = extractVariableTypes(parsedCustomVariables);
-
 				const dynamicVariableObj = createDynamicObject(contact?.custom_fields);
-				const callDynamicVariable: any = {};
+
+        const callDynamicVariable: any = {};
 				callDynamicVariable['recipientName'] = contact.name?.split(' ')?.[0] || '';
 				callDynamicVariable['currentTime'] = adjustTimeByTimezone(
 					new Date(),
@@ -238,6 +262,7 @@ export async function processCalls(
 						RetellCallTypesE.PHONE_CALL,
 						workflowId,
 					]);
+					callResults.push(contact);
 
 					await updateCallStatus(connection, contact.id, 'calling');
 					return contact;
@@ -246,16 +271,15 @@ export async function processCalls(
 						`Skipping call for lead ${contact.id} (not eligible). \nvariables : ${JSON.stringify(callDynamicVariable, null, 3)}`,
 					);
 				}
-			} else
-				console.log('call executer error :', 'agent PhoneNumber or lead PhoneNumber not found');
+			} else console.log(`Agent or lead phone number missing for leadId : ${contact.id}`);
 		} catch (error) {
 			console.error(`Error processing lead ${contact.id}:`, error);
 			throw new Error(error);
 		}
-	});
-
-	return Promise.all(callPromises);
+	}
+	return callResults;
 }
+
 // 🔹 Database Helper Functions
 export async function storeCallDetails(connection: any, record: any[]) {
 	const [result]: any = await connection.execute(

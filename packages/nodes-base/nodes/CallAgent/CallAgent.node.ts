@@ -201,7 +201,7 @@ export async function processCalls(
 				const { constantVariables, dynamicVariable } = extractVariableTypes(parsedCustomVariables);
 				const dynamicVariableObj = createDynamicObject(contact?.custom_fields);
 
-        const callDynamicVariable: any = {};
+				const callDynamicVariable: any = {};
 				callDynamicVariable['recipientName'] = contact.name?.split(' ')?.[0] || '';
 				callDynamicVariable['currentTime'] = adjustTimeByTimezone(
 					new Date(),
@@ -262,10 +262,12 @@ export async function processCalls(
 						RetellCallTypesE.PHONE_CALL,
 						workflowId,
 					]);
-					callResults.push(contact);
+					if (contact.isCallBackLead) {
+						await updateCallDetails(connection, contact.callBackCallId, { is_callback: true });
+					}
 
 					await updateCallStatus(connection, contact.id, 'calling');
-					return contact;
+					callResults.push(contact);
 				} else {
 					console.log(
 						`Skipping call for lead ${contact.id} (not eligible). \nvariables : ${JSON.stringify(callDynamicVariable, null, 3)}`,
@@ -297,6 +299,26 @@ export async function updateCallStatus(connection: any, contactId: number, statu
 		status,
 		contactId,
 	]);
+}
+
+export async function updateCallDetails(
+	connection: any,
+	callId: number,
+	updates: Record<string, any>,
+) {
+	// Build dynamic SET clause
+	const fields = Object.keys(updates);
+	const values = Object.values(updates);
+
+	if (!fields.length) {
+		return; // Nothing to update
+	}
+
+	const setClause = fields.map((field) => `${field} = ?`).join(', ');
+
+	const query = `UPDATE sdr_agents_call_details SET ${setClause} WHERE id = ?`;
+
+	await connection.execute(query, [...values, callId]);
 }
 
 export async function storeExecutionDetails(connection: any, record: any[]) {

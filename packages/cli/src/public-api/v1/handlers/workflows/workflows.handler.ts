@@ -460,8 +460,11 @@ export = {
 			workflowPayload.name = name;
 			workflowPayload.active = false;
 			workflowPayload.versionId = uuid();
+			workflowPayload.triggerCount = 0;
 			delete workflowPayload.id;
 			delete workflowPayload.shared;
+			delete workflowPayload.createdAt;
+			delete workflowPayload.updatedAt;
 
 			await replaceInvalidCredentials(workflowPayload);
 

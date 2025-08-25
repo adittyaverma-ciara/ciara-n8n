@@ -12,7 +12,7 @@ import { getDbConnection } from '@utils/db';
 import {
 	extractVariableTypes,
 	createDynamicObject,
-	adjustTimeByOffset,
+	adjustTimeByTimezone,
 	isVariableValue,
 	extractVariableName,
 	checkDynamicObject,
@@ -102,7 +102,7 @@ export class CallAgent implements INodeType {
 			);
 		});
 
-		const timezone = objectInfo?.workflow?.settings?.timezone || 'UTC';
+		const timezone = this.getTimezone() || 'UTC';
 		let sdrAgent, sdrAgentId, segmentId;
 		const playbookId = workflow.id as string;
 		try {
@@ -203,7 +203,11 @@ export async function processCalls(
 
         const callDynamicVariable: any = {};
 				callDynamicVariable['recipientName'] = contact.name?.split(' ')?.[0] || '';
-				callDynamicVariable['currentTime'] = adjustTimeByOffset(new Date(), timezone);
+				callDynamicVariable['currentTime'] = adjustTimeByTimezone(
+					new Date(),
+					timezone,
+					'dddd, MMMM D, YYYY [at] hh:mm:ss A z',
+				);
 
 				const leadDetails = {
 					...dynamicVariableObj,

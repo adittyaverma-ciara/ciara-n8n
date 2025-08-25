@@ -107,6 +107,11 @@ export const adjustTimeByOffset = (date: Date, timezone: string) => {
 	return momentTz(date).tz(timezone).format();
 };
 
+export const adjustTimeByTimezone = (date: Date, timezone: string, format: string = '') => {
+	// Adjust the time by the timezone and format
+	return momentTz(date).tz(timezone).format(format);
+};
+
 export function checkDynamicObject(variables: string[], dataMap: Record<string, any>) {
 	let result: Record<string, any> = {};
 	for (let variable of variables) {

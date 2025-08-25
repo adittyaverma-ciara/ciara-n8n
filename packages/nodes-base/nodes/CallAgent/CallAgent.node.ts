@@ -12,7 +12,7 @@ import { getDbConnection } from '@utils/db';
 import {
 	extractVariableTypes,
 	createDynamicObject,
-	adjustTimeByOffset,
+	adjustTimeByTimezone,
 	isVariableValue,
 	extractVariableName,
 	checkDynamicObject,
@@ -93,8 +93,7 @@ export class CallAgent implements INodeType {
 		const engineWebhookUrl = globalConfig.nodes['engineWebhookUrl'];
 
 		const connection = await getDbConnection();
-		const objectInfo = Object.assign(this);
-		const timezone = objectInfo?.workflow?.settings?.timezone || 'UTC';
+		const timezone = this.getTimezone() || 'UTC';
 		let sdrAgent, sdrAgentId, segmentId;
 		const workflow = this.getWorkflow();
 		const playbookId = workflow.id as string;
@@ -180,7 +179,11 @@ export async function processCalls(
 				const dynamicVariableObj = createDynamicObject(contact?.custom_fields);
 				const callDynamicVariable: any = {};
 				callDynamicVariable['recipientName'] = contact.name?.split(' ')?.[0] || '';
-				callDynamicVariable['currentTime'] = adjustTimeByOffset(new Date(), timezone);
+				callDynamicVariable['currentTime'] = adjustTimeByTimezone(
+					new Date(),
+					timezone,
+					'dddd, MMMM D, YYYY [at] hh:mm:ss A z',
+				);
 
 				const leadDetails = {
 					...dynamicVariableObj,

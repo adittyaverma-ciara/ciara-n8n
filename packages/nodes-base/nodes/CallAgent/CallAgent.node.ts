@@ -201,7 +201,7 @@ export async function processCalls(
 				const { constantVariables, dynamicVariable } = extractVariableTypes(parsedCustomVariables);
 				const dynamicVariableObj = createDynamicObject(contact?.custom_fields);
 
-        const callDynamicVariable: any = {};
+				const callDynamicVariable: any = {};
 				callDynamicVariable['recipientName'] = contact.name?.split(' ')?.[0] || '';
 				callDynamicVariable['currentTime'] = adjustTimeByTimezone(
 					new Date(),
@@ -267,7 +267,7 @@ export async function processCalls(
 					}
 
 					await updateCallStatus(connection, contact.id, 'calling');
-          callResults.push(contact);
+					callResults.push(contact);
 				} else {
 					console.log(
 						`Skipping call for lead ${contact.id} (not eligible). \nvariables : ${JSON.stringify(callDynamicVariable, null, 3)}`,

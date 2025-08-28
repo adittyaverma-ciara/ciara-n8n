@@ -269,14 +269,29 @@ export async function processCalls(
 					await updateCallStatus(connection, contact.id, 'calling');
 					callResults.push(contact);
 				} else {
-					console.log(
-						`Skipping call for lead ${contact.id} (not eligible). \nvariables : ${JSON.stringify(callDynamicVariable, null, 3)}`,
-					);
+					const error = `Skipping call for lead ${contact.id} (not eligible). \nvariables : ${JSON.stringify(callDynamicVariable, null, 3)}`;
+					console.error(error);
+					callResults.push({
+						...contact,
+						error,
+					});
 				}
-			} else console.log(`Agent or lead phone number missing for leadId : ${contact.id}`);
+			} else {
+				const error = `Agent or lead phone number missing for leadId : ${contact.id}`;
+				console.error(error);
+				callResults.push({
+					...contact,
+					error,
+				});
+			}
 		} catch (error) {
-			console.error(`Error processing lead ${contact.id}:`, error);
-			throw new Error(error);
+			const errorMessage = `Error processing lead ${contact.id}: ${JSON.stringify(error, null, 3)}`;
+			console.error(errorMessage);
+			callResults.push({
+				...contact,
+				error: errorMessage,
+			});
+			// throw new Error(error);
 		}
 	}
 	return callResults;
